@@ -8,13 +8,10 @@ library(tibble)
 library(stringr)
 library(dplyr)
 library(processx)
-library(rhandsontable)
-library(lubridate)
 library(shinyFiles)
 library(shinybusy)
 library(digest)
 library(readxl)
-library(reactable)
 
 bin_on_path = function(bin) {
   exit_code = suppressWarnings(system2("command", args = c("-v", bin), stdout = FALSE))
@@ -43,14 +40,20 @@ cards <- list(
       'Samplesheet preview',  
       tooltip(
         bsicons::bs_icon("question-circle"),
-        "Either upload xlsx/csv or paste samples in table",
+        "Upload xlsx/csv to see preview",
         placement = "right")
     ),
-    reactableOutput('samplesheet')
+    tableOutput('samplesheet')
   ),
 
   card2 <- card(
-    card_title('Live terminal view'),
+    card_title(
+      'Live terminal view',
+      tooltip(
+        bsicons::bs_icon("question-circle"),
+        "Preview of the terminal, for viewing the selected parameters and monitor output",
+        placement = "right")
+    ),
     verbatimTextOutput('stdout')
   )
 )
@@ -116,7 +119,7 @@ server <- function(input, output, session) {
   # observers
   observeEvent(input$start, {
     if (is.integer(input$fastq_folder)) {
-      notify_failure('Please select a fastq_pass folder!')
+      notify_failure('Please select a fastq_pass folder!', position = 'center-bottom')
       return()
     }
     withCallingHandlers({
@@ -138,14 +141,14 @@ server <- function(input, output, session) {
   })
   
   #outputs
-  output$samplesheet <- renderReactable({
+  output$samplesheet <- renderTable({
     req(samplesheet())
     ext <- tools::file_ext(samplesheet()$datapath)
     validate(need(ext == 'csv' | ext == 'xlsx', 'Please upload a csv or excel file'))
     if (ext == 'csv') {
-      reactable(read.csv(samplesheet()$datapath), compact = TRUE, pagination = F, highlight = T)
+      read.csv(samplesheet()$datapath, header = T)
     } else if (ext == 'xlsx') {
-      reactable(read_excel(samplesheet()$datapath, col_names = T), compact = TRUE, pagination = F, highlight = T)
+      read_excel(samplesheet()$datapath)
     }
     
     

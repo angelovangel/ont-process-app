@@ -406,19 +406,6 @@
       ],
       "Hash": "001cecbeac1cff9301bdc3775ee46a86"
     },
-    "lubridate": {
-      "Package": "lubridate",
-      "Version": "1.9.2",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "generics",
-        "methods",
-        "timechange"
-      ],
-      "Hash": "e25f18436e3efd42c7c590a1c4c15390"
-    },
     "magrittr": {
       "Package": "magrittr",
       "Version": "2.0.3",
@@ -550,31 +537,6 @@
       ],
       "Hash": "5e3c5dc0b071b21fa128676560dbe94d"
     },
-    "reactR": {
-      "Package": "reactR",
-      "Version": "0.5.0",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "htmltools"
-      ],
-      "Hash": "c9014fd1a435b2d790dd506589cb24e5"
-    },
-    "reactable": {
-      "Package": "reactable",
-      "Version": "0.4.4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "digest",
-        "htmltools",
-        "htmlwidgets",
-        "jsonlite",
-        "reactR"
-      ],
-      "Hash": "6069eb2a6597963eae0605c1875ff14c"
-    },
     "readxl": {
       "Package": "readxl",
       "Version": "1.4.3",
@@ -606,20 +568,6 @@
         "utils"
       ],
       "Hash": "4b22ac016fe54028b88d0c68badbd061"
-    },
-    "rhandsontable": {
-      "Package": "rhandsontable",
-      "Version": "0.3.8",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "htmlwidgets",
-        "jsonlite",
-        "magrittr",
-        "methods",
-        "utils"
-      ],
-      "Hash": "cc9b9fd1376181e84c88621711454676"
     },
     "rlang": {
       "Package": "rlang",
@@ -837,17 +785,6 @@
         "withr"
       ],
       "Hash": "79540e5fcd9e0435af547d885f184fd5"
-    },
-    "timechange": {
-      "Package": "timechange",
-      "Version": "0.2.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "cpp11"
-      ],
-      "Hash": "8548b44f79a35ba1791308b61e6012d7"
     },
     "tinytex": {
       "Package": "tinytex",
