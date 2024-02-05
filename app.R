@@ -12,6 +12,7 @@ library(shinyFiles)
 library(shinybusy)
 library(digest)
 library(readxl)
+library(digest)
 
 bin_on_path = function(bin) {
   exit_code = suppressWarnings(system2("command", args = c("-v", bin), stdout = FALSE))
@@ -32,7 +33,9 @@ sidebar <- sidebar(
     fileInput('upload', 'Upload sample sheet', multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file'),
     shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
     tags$hr(),
-    actionButton('start', 'Start processing')
+    actionButton('start', 'Start processing'),
+    tags$hr(),
+    uiOutput('download_report')
   )
 )
 
@@ -67,7 +70,7 @@ ui <- page_navbar(
   theme = bs_theme(bootswatch = 'yeti', primary = '#196F3D'),
   sidebar = sidebar,
   nav_panel(
-    use_busy_spinner(spin = "double-bounce", position = 'top-right', color = '#CB4335'),
+    use_busy_spinner(spin = "double-bounce", position = 'top-right', color = '#E67E22'),
     title = '',
     layout_column_wrap(
       #width = 1/2,
@@ -85,6 +88,7 @@ server <- function(input, output, session) {
   } else {
     notify_success('ont-process-run.sh is ready', position = 'center-bottom')
   }
+  
   
   # reactives
   samplesheet <- reactive({
@@ -153,9 +157,30 @@ server <- function(input, output, session) {
       }
     )
     
-    # restore buttons on success
+    # restore buttons on success, 
     if(p$status == 0) {
       notify_success(paste0('Procesing finished, results are in ', selectedFolder, '/processed'), position = 'center-bottom')
+      shinyjs::enable('controls')
+      shinyjs::html(id = 'start', 'Start processing')
+      hide_spinner() # hide the spinner
+      
+      #render download report button etc
+      # generate hash for faster-report names, only of report is there
+      if (input$report) {
+        report_hash <- sprintf("%s-%s.html", 'faster-report', digest::digest(runif(1), algo = 'crc32') )
+        pathtoreport <- paste0(dirname(selectedFolder), '/processed/faster-report.html')
+        system2('cp', args = c(pathtoreport, paste0('www/', report_hash)))
+        shinyjs::html('stdout', paste0('Copying ', report_hash), add = T)
+        output$download_report <- renderUI({
+          actionButton(
+            'report', 'Faster report', 
+            onclick = sprintf("window.open('%s', '_blank')", report_hash)
+          )
+        })
+      }
+      
+    } else {
+      notify_failure('Processing failed!')
       shinyjs::enable('controls')
       shinyjs::html(id = 'start', 'Start processing')
       hide_spinner() # hide the spinner
@@ -172,7 +197,6 @@ server <- function(input, output, session) {
     } else if (ext == 'xlsx') {
       read_excel(samplesheet()$datapath)
     }
-    
     
   })
   
