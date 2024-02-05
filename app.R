@@ -40,7 +40,7 @@ cards <- list(
       'Samplesheet preview',  
       tooltip(
         bsicons::bs_icon("question-circle"),
-        "Upload xlsx/csv to see preview",
+        "Upload xlsx/csv with columns 'sample' and 'barcode'. Could have other columns too",
         placement = "right")
     ),
     tableOutput('samplesheet')
@@ -98,15 +98,19 @@ server <- function(input, output, session) {
   output$stdout <- renderPrint({
     if (is.integer(input$fastq_folder)) {
       cat("No fastq folder selected\n")
+    } else if (is.null(samplesheet()$datapath)) {
+      cat("No samplesheet uploaded")
     } else {
       # hard set fastq folder and build arguments
       selectedFolder <<- parseDirPath(volumes, input$fastq_folder)
-      nfastq <<- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = T))
+      nfastq <<- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
       
       htmlreport <- if_else(input$report, '-r', '')
       barcoded <- if_else(input$barcoded, '', '-n') 
       arguments <<- c('-p', selectedFolder, '-c', samplesheet()$datapath, htmlreport, barcoded)  
       
+      #:) remove empty strings
+      #arguments <- arguments[arguments != ""] 
       cat(
         'Selected folder:\n', selectedFolder, '\n', '-------\n\n',
         'Number of fastq files:\n', nfastq, '\n',  '-------\n\n',
@@ -125,7 +129,7 @@ server <- function(input, output, session) {
     withCallingHandlers({
       shinyjs::html(id = "stdout", "")
       p <- processx::run(echo_cmd = T,
-        'ont-process-run.sh', args = arguments, 
+        'ont-process-run.sh', args = arguments[arguments != ""] , 
         #wd = selectedFolder, 
         stderr_to_stdout = TRUE, error_on_status = FALSE, 
         stdout_line_callback = function(line, proc) {message(line)}
