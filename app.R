@@ -25,13 +25,15 @@ emptysheet <- tibble(
 )
 
 sidebar <- sidebar(
-  title = 'Select run',
-  checkboxInput('barcoded', 'Barcoded run', value = T),
-  checkboxInput('report', 'Generate html report', value = T),
-  fileInput('upload', 'Upload sample sheet', multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file'),
-  shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
-  tags$hr(),
-  actionButton('start', 'Start processing')
+  title = 'Controls',
+  shiny::div(id = 'controls',
+    checkboxInput('barcoded', 'Barcoded run', value = T),
+    checkboxInput('report', 'Generate html report', value = T),
+    fileInput('upload', 'Upload sample sheet', multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file'),
+    shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
+    tags$hr(),
+    actionButton('start', 'Start processing')
+  )
 )
 
 cards <- list(
@@ -90,8 +92,8 @@ server <- function(input, output, session) {
   # dir choose management --------------------------------------
   volumes <- c(Home = fs::path_home(), getVolumes()() )
   shinyDirChoose(input, "fastq_folder", 
-                 roots = volumes, 
-                 session = session, 
+                 roots = volumes,
+                 session = session,
                  restrictions = system.file(package = "base")) 
   
   # build arguments for main call and display them on stdout at the same time
@@ -126,6 +128,10 @@ server <- function(input, output, session) {
       notify_failure('Please select a fastq_pass folder!', position = 'center-bottom')
       return()
     }
+    # disable button while running
+    shinyjs::disable('controls')
+    shinyjs::html(id = 'start', 'Please wait...')
+    
     withCallingHandlers({
       shinyjs::html(id = "stdout", "")
       p <- processx::run(echo_cmd = T,
@@ -138,10 +144,17 @@ server <- function(input, output, session) {
     }, 
       message = function(m) {
         shinyjs::html(id = "stdout", html = m$message, add = TRUE); 
-        runjs("document.getElementById('stdout').parentElement.scrollTo(0,1e9);") 
+        runjs("document.getElementById('stdout').parentElement.scrollTo({ top: 1e9, behavior: 'smooth' });") 
         #runjs("window.scrollTo(0,9999);")
       }
     )
+    
+    # restore buttons on success
+    if(p$status == 0) {
+      notify_success(paste0('Procesing finished, results are in ', selectedFolder, 'processed'))
+      shinyjs::enable('controls')
+      shinyjs::html(id = 'start', 'Start processing')
+    }
   })
   
   #outputs
