@@ -64,11 +64,13 @@ ui <- page_navbar(
   useShinyjs(),
   fillable = T,
   title = 'ONT process run app',
-  theme = bs_theme(bootswatch = 'yeti'),
+  theme = bs_theme(bootswatch = 'yeti', primary = '#196F3D'),
   sidebar = sidebar,
   nav_panel(
+    use_busy_spinner(spin = "double-bounce", position = 'top-right', color = '#CB4335'),
     title = '',
     layout_column_wrap(
+      #width = 1/2,
       width = NULL, height = 500, fill = TRUE,
       style = htmltools::css(grid_template_columns = "1fr 3fr"),
       !!!cards
@@ -132,6 +134,7 @@ server <- function(input, output, session) {
     # disable button while running
     shinyjs::disable('controls')
     shinyjs::html(id = 'start', 'Please wait...')
+    show_spinner() # show the spinner
     
     withCallingHandlers({
       shinyjs::html(id = "stdout", "")
@@ -152,9 +155,10 @@ server <- function(input, output, session) {
     
     # restore buttons on success
     if(p$status == 0) {
-      notify_success(paste0('Procesing finished, results are in ', selectedFolder, 'processed'))
+      notify_success(paste0('Procesing finished, results are in ', selectedFolder, '/processed'), position = 'center-bottom')
       shinyjs::enable('controls')
       shinyjs::html(id = 'start', 'Start processing')
+      hide_spinner() # hide the spinner
     }
   })
   
