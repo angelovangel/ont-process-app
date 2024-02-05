@@ -90,7 +90,8 @@ server <- function(input, output, session) {
   })
   
   # dir choose management --------------------------------------
-  volumes <- c(Home = fs::path_home(), getVolumes()() )
+  default_path <- Sys.getenv('DEFAULT_PATH')
+  volumes <- c(ont_data = default_path, getVolumes()())
   shinyDirChoose(input, "fastq_folder", 
                  roots = volumes,
                  session = session,
