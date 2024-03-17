@@ -193,7 +193,18 @@ server <- function(input, output, session) {
     ext <- tools::file_ext(samplesheet()$datapath)
     validate(need(ext == 'csv' | ext == 'xlsx', 'Please upload a csv or excel file'))
     if (ext == 'csv') {
-      read.csv(samplesheet()$datapath, header = T)
+      # deal with samplesheets lacking complete final line, e.g. CRLF
+      # read 2 times, first time to capture warning
+      x <- tryCatch(
+        read.csv(samplesheet()$datapath, header = T), 
+        warning = function(w) {w}
+      )
+      if (inherits(x, 'simpleWarning')) {
+        mess <- x$message
+        notify_warning(mess, position = 'center-center', timeout = 5000)
+        x <- read.csv(samplesheet()$datapath, header = T)
+      }
+      x
     } else if (ext == 'xlsx') {
       read_excel(samplesheet()$datapath)
     }
