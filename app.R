@@ -200,8 +200,8 @@ server <- function(input, output, session) {
         warning = function(w) {w}
       )
       if (inherits(x, 'simpleWarning')) {
-        mess <- x$message
-        notify_warning(mess, position = 'center-center', timeout = 5000)
+        notify_failure(x$message, position = 'center-center', timeout = 3000)
+        notify_warning('This samplesheet will work but the last sample may be omitted', position = 'center-center', timeout = 5000)
         x <- read.csv(samplesheet()$datapath, header = T)
       }
       x
