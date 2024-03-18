@@ -173,7 +173,7 @@ server <- function(input, output, session) {
         shinyjs::html('stdout', paste0('Copying ', report_hash), add = T)
         output$download_report <- renderUI({
           actionButton(
-            'report', 'Faster report', 
+            'report', 'View HTML report', 
             onclick = sprintf("window.open('%s', '_blank')", report_hash)
           )
         })
@@ -188,6 +188,7 @@ server <- function(input, output, session) {
   })
   
   #outputs
+  # because samplesheet is read here to preview, we can do some checks on it
   output$samplesheet <- renderTable({
     req(samplesheet())
     ext <- tools::file_ext(samplesheet()$datapath)
@@ -204,9 +205,25 @@ server <- function(input, output, session) {
         notify_warning('This samplesheet will work but the last sample may be omitted', position = 'center-center', timeout = 5000)
         x <- read.csv(samplesheet()$datapath, header = T)
       }
+      # check if sample and barcode columns are present
+      if (sum(c('sample', 'barcode') %in% colnames(x)) != 2) {
+        notify_failure('Samplesheet must have columns "sample" and "barcode"', position = 'center-center', timeout = 5000)
+        shinyjs::disable('start')
+      } else {
+        notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
+        shinyjs::enable('start')
+      }
       x
     } else if (ext == 'xlsx') {
-      read_excel(samplesheet()$datapath)
+      y <- read_excel(samplesheet()$datapath)
+      if (sum(c('sample', 'barcode') %in% colnames(y)) != 2) {
+        notify_failure('Samplesheet must have columns "sample" and "barcode"', position = 'center-center', timeout = 5000)
+        shinyjs::disable('start')
+      } else {
+        notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
+        shinyjs::enable('start')
+      }
+      y
     }
     
   })
