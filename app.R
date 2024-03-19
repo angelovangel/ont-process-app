@@ -130,6 +130,21 @@ server <- function(input, output, session) {
     })
   
   # observers
+  # checks on fastq_pass selected
+  observeEvent(input$fastq_folder, {
+    # start checking if something is selected, initially it is integer
+    if (!is.integer(input$fastq_folder)) {
+      path <- parseDirPath(volumes, input$fastq_folder)
+      if (str_ends(path, 'fastq_pass')) {
+        notify_success(path, position = 'center-center', timeout = 3000)
+        shinyjs::enable('start')
+      } else {
+        notify_failure('Select a fastq_pass folder!', position = 'center-center', timeout = 3000)
+        shinyjs::disable('start')
+      }
+    }
+  })
+  
   observeEvent(input$start, {
     if (is.integer(input$fastq_folder)) {
       notify_failure('Please select a fastq_pass folder!', position = 'center-bottom')
@@ -201,8 +216,8 @@ server <- function(input, output, session) {
         warning = function(w) {w}
       )
       if (inherits(x, 'simpleWarning')) {
-        notify_failure(x$message, position = 'center-center', timeout = 3000)
-        notify_warning('This samplesheet will work but the last sample may be omitted', position = 'center-center', timeout = 5000)
+        notify_warning(x$message, position = 'center-center', timeout = 3000)
+        #notify_warning('This samplesheet will work but the last sample may be omitted', position = 'center-center', timeout = 5000)
         x <- read.csv(samplesheet()$datapath, header = T)
       }
       # check if sample and barcode columns are present
