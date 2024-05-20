@@ -13,6 +13,19 @@ library(shinybusy)
 library(digest)
 library(readxl)
 library(digest)
+#### needed by faster-report, load here to have them managed by renv and not have to use docker..
+library(optparse)
+library(R.utils)
+library(funr)
+library(writexl)
+library(knitr)
+library(DT)
+library(kableExtra)
+library(sparkline)
+library(parallelMap)
+library(jsonlite)
+library(htmlwidgets)
+#### needed by faster-report, load here to have them managed by renv and not have to use docker..
 
 bin_on_path = function(bin) {
   exit_code = suppressWarnings(system2("command", args = c("-v", bin), stdout = FALSE))
@@ -30,6 +43,7 @@ sidebar <- sidebar(
   shiny::div(id = 'controls',
     checkboxInput('barcoded', 'Barcoded run', value = T),
     checkboxInput('report', 'Generate html report', value = T),
+    uiOutput('usedocker'),
     fileInput('upload', 'Upload sample sheet', multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file'),
     shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
     tags$hr(),
@@ -95,6 +109,14 @@ server <- function(input, output, session) {
     file <- input$upload
   })
   
+  # render docker checkbox if report selected
+  output$usedocker <- renderUI({
+    if (input$report) {
+        checkboxInput('docker', 'Used docker for report', value = F)
+      }
+  })
+
+  
   # dir choose management --------------------------------------
   default_path <- Sys.getenv('DEFAULT_PATH')
   volumes <- c(ont_data = default_path, getVolumes()())
@@ -115,8 +137,10 @@ server <- function(input, output, session) {
       nfastq <<- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
       
       htmlreport <- if_else(input$report, '-r', '')
-      barcoded <- if_else(input$barcoded, '', '-n') 
-      arguments <<- c('-p', selectedFolder, '-c', samplesheet()$datapath, htmlreport, barcoded)  
+      barcoded <- if_else(input$barcoded, '', '-n')
+      docker <- if_else(input$docker, '-d', '')
+      
+      arguments <<- c('-p', selectedFolder, '-c', samplesheet()$datapath, htmlreport, barcoded, docker)  
       
       #:) remove empty strings
       #arguments <- arguments[arguments != ""] 
@@ -207,7 +231,7 @@ server <- function(input, output, session) {
   output$samplesheet <- renderTable({
     req(samplesheet())
     ext <- tools::file_ext(samplesheet()$datapath)
-    validate(need(ext == 'csv' | ext == 'xlsx', 'Please upload a csv or excel file'))
+    shiny::validate(need(ext == 'csv' | ext == 'xlsx', 'Please upload a csv or excel file'))
     if (ext == 'csv') {
       # deal with samplesheets lacking complete final line, e.g. CRLF
       # read 2 times, first time to capture warning
