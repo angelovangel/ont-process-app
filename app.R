@@ -109,6 +109,7 @@ server <- function(input, output, session) {
   
   iv <- InputValidator$new()
   iv$add_rule('sample_name', sv_required())
+  iv$add_rule('sample_name', sv_regex(pattern = "^\\w{3,}$", message = "At least 3 alphanumerics and underscore, no white space"))
   iv$enable()
   
   # reactives
