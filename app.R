@@ -13,6 +13,7 @@ library(shinybusy)
 library(digest)
 library(readxl)
 library(digest)
+library(shinyvalidate)
 #### needed by faster-report, load here to have them managed by renv and not have to use docker..
 library(optparse)
 library(R.utils)
@@ -42,13 +43,16 @@ sidebar <- sidebar(
   title = 'Controls',
   shiny::div(id = 'controls',
     checkboxInput('barcoded', 'Barcoded run', value = T),
+    uiOutput('nonbc_sample_name'),
     checkboxInput('report', 'Generate html report', value = T),
     uiOutput('usedocker'),
     fileInput('upload', 'Upload sample sheet', multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file'),
     shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
     tags$hr(),
     actionButton('start', 'Start processing'),
-    tags$hr(),
+    div(style="margin-bottom:10px"),
+    actionButton('reset', 'Reset inputs'),
+    div(style="margin-bottom:10px"),
     uiOutput('download_report')
   )
 )
@@ -103,10 +107,13 @@ server <- function(input, output, session) {
     notify_success('ont-process-run.sh is ready', position = 'center-bottom')
   }
   
+  iv <- InputValidator$new()
+  iv$add_rule('sample_name', sv_required())
+  iv$enable()
   
   # reactives
   samplesheet <- reactive({
-    file <- input$upload
+      file <- input$upload
   })
   
   # render docker checkbox if report selected
@@ -114,6 +121,22 @@ server <- function(input, output, session) {
     if (input$report) {
         checkboxInput('docker', 'Used docker for report', value = F)
       }
+  })
+  
+  # render sample name input if nonbc run
+  output$nonbc_sample_name <- renderUI({
+    if (!input$barcoded) {
+      textInput('sample_name', 'Sample name', value = '')
+    }
+  })
+  
+  observeEvent(input$barcoded, {
+    
+    if (!input$barcoded) {
+      shinyjs::disable('upload')
+    } else {
+      shinyjs::enable('upload')
+    }
   })
 
   
@@ -129,18 +152,24 @@ server <- function(input, output, session) {
   output$stdout <- renderPrint({
     if (is.integer(input$fastq_folder)) {
       cat("No fastq folder selected\n")
-    } else if (is.null(samplesheet()$datapath)) {
-      cat("No samplesheet uploaded")
+    #} else if (!input$barcoded) {
     } else {
       # hard set fastq folder and build arguments
       selectedFolder <<- parseDirPath(volumes, input$fastq_folder)
+        if (input$barcoded && !is.null(samplesheet()$datapath)) {
+          sample_sheet <<- samplesheet()$datapath
+        } else {
+          sample_sheet <<- input$sample_name
+        }
+        
+      
       nfastq <<- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
       
       htmlreport <- if_else(input$report, '-r', '')
       barcoded <- if_else(input$barcoded, '', '-n')
       docker <- if_else(input$docker, '-d', '')
       
-      arguments <<- c('-p', selectedFolder, '-c', samplesheet()$datapath, htmlreport, barcoded, docker)  
+      arguments <<- c('-p', selectedFolder, '-c', sample_sheet, htmlreport, barcoded, docker)  
       
       #:) remove empty strings
       #arguments <- arguments[arguments != ""] 
@@ -181,13 +210,15 @@ server <- function(input, output, session) {
     
     withCallingHandlers({
       shinyjs::html(id = "stdout", "")
-      p <- processx::run(echo_cmd = T,
-        'ont-process-run.sh', args = arguments[arguments != ""] , 
-        #wd = selectedFolder, 
-        stderr_to_stdout = TRUE, error_on_status = FALSE, 
-        stdout_line_callback = function(line, proc) {message(line)}
-      )
       
+        p <- processx::run(
+          'ont-process-run.sh', 
+          args = arguments[arguments != ""] , 
+          echo_cmd = T,
+          #wd = selectedFolder, 
+          stderr_to_stdout = TRUE, error_on_status = FALSE, 
+          stdout_line_callback = function(line, proc) {message(line)}
+        )
     }, 
       message = function(m) {
         shinyjs::html(id = "stdout", html = m$message, add = TRUE); 
@@ -226,10 +257,14 @@ server <- function(input, output, session) {
     }
   })
   
+  observeEvent(input$reset, {
+    session$reload()
+  })
+  
   #outputs
   # because samplesheet is read here to preview, we can do some checks on it
   output$samplesheet <- renderTable({
-    req(samplesheet())
+    req(samplesheet(), input$barcoded)
     ext <- tools::file_ext(samplesheet()$datapath)
     shiny::validate(need(ext == 'csv' | ext == 'xlsx', 'Please upload a csv or excel file'))
     if (ext == 'csv') {
