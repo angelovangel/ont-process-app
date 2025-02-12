@@ -126,13 +126,6 @@ server <- function(input, output, session) {
       file <- input$upload
   })
   
-  # render docker checkbox if report selected
-  # output$usedocker <- renderUI({
-  #   if (input$report) {
-  #       checkboxInput('docker', 'Used docker for report', value = F)
-  #     }
-  # })
-  
   # render sample name input if nonbc run
   output$nonbc_sample_name <- renderUI({
     if (!input$barcoded) {
@@ -140,15 +133,6 @@ server <- function(input, output, session) {
     }
   })
   
-  observeEvent(input$barcoded, {
-    
-    if (!input$barcoded) {
-      shinyjs::disable('upload')
-    } else {
-      shinyjs::enable('upload')
-    }
-  })
-
   
   # dir choose management --------------------------------------
   default_path <- Sys.getenv('DEFAULT_PATH')
@@ -162,6 +146,8 @@ server <- function(input, output, session) {
   output$stdout <- renderPrint({
     if (is.integer(input$fastq_folder)) {
       cat("No fastq folder selected\n")
+      shinyjs::disable('start')
+      
     #} else if (!input$barcoded) {
     } else {
       # hard set fastq folder and build arguments
@@ -211,6 +197,11 @@ server <- function(input, output, session) {
   observeEvent(input$start, {
     if (is.integer(input$fastq_folder)) {
       notify_failure('Please select a fastq_pass folder!', position = 'center-bottom')
+      return()
+    }
+    
+    if (!input$barcoded && !iv$is_valid()) {
+      notify_failure('Please fix sample name!', position = 'center-bottom')
       return()
     }
     # disable button while running
@@ -295,7 +286,7 @@ server <- function(input, output, session) {
         shinyjs::disable('start')
       } else {
         notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
-        shinyjs::enable('start')
+        #shinyjs::enable('start')
       }
       x
     } else if (ext == 'xlsx') {
@@ -305,7 +296,7 @@ server <- function(input, output, session) {
         shinyjs::disable('start')
       } else {
         notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
-        shinyjs::enable('start')
+        #shinyjs::enable('start')
       }
       y
     }
