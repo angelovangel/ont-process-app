@@ -304,5 +304,9 @@ server <- function(input, output, session) {
   })
   
 }
-
+cleanup <- function() {
+  rmfiles <- list.files(path = "www", pattern = "faster-report*", full.names = T)
+  lapply(rmfiles, file.remove)
+}
+onStop(function() { cleanup() })
 shinyApp(ui, server)
