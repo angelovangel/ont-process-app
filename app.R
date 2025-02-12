@@ -14,6 +14,7 @@ library(digest)
 library(readxl)
 library(digest)
 library(shinyvalidate)
+
 #### needed by faster-report, load here to have them managed by renv and not have to use docker..
 library(optparse)
 library(R.utils)
@@ -42,13 +43,21 @@ emptysheet <- tibble(
 sidebar <- sidebar(
   title = 'Controls',
   shiny::div(id = 'controls',
-    checkboxInput('barcoded', 'Barcoded run', value = T),
+    checkboxInput('barcoded', 'Barcoded run', value = F),
     uiOutput('nonbc_sample_name'),
-    checkboxInput('report', 'Generate html report', value = T),
-    uiOutput('usedocker'),
-    fileInput('upload', 'Upload sample sheet', multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file'),
+    conditionalPanel(
+      condition = "input.barcoded",
+      fileInput('upload', 'Upload sample sheet', 
+                multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file')
+    ),
     shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
     tags$hr(),
+    checkboxInput('report', 'Generate html report', value = T),
+    conditionalPanel(
+      condition = "input.report",
+      checkboxInput('docker', 'Used docker for report', value = F)
+    ),
+    #uiOutput('usedocker'),
     actionButton('start', 'Start processing'),
     div(style="margin-bottom:10px"),
     actionButton('reset', 'Reset inputs'),
@@ -118,11 +127,11 @@ server <- function(input, output, session) {
   })
   
   # render docker checkbox if report selected
-  output$usedocker <- renderUI({
-    if (input$report) {
-        checkboxInput('docker', 'Used docker for report', value = F)
-      }
-  })
+  # output$usedocker <- renderUI({
+  #   if (input$report) {
+  #       checkboxInput('docker', 'Used docker for report', value = F)
+  #     }
+  # })
   
   # render sample name input if nonbc run
   output$nonbc_sample_name <- renderUI({
@@ -272,7 +281,7 @@ server <- function(input, output, session) {
       # deal with samplesheets lacking complete final line, e.g. CRLF
       # read 2 times, first time to capture warning
       x <- tryCatch(
-        read.csv(samplesheet()$datapath, header = T), 
+        read.csv(samplesheet()$datapath, header = T),
         warning = function(w) {w}
       )
       if (inherits(x, 'simpleWarning')) {
@@ -300,7 +309,7 @@ server <- function(input, output, session) {
       }
       y
     }
-    
+
   })
   
 }
