@@ -161,9 +161,9 @@ server <- function(input, output, session) {
       
       nfastq <<- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
       
-      htmlreport <- if_else(input$report, '-r', '')
-      barcoded <- if_else(input$barcoded, '', '-n')
-      docker <- if_else(input$docker, '-d', '')
+      htmlreport <- ifelse(input$report, '-r', '')
+      barcoded <- ifelse(input$barcoded, '', '-n')
+      docker <- ifelse(input$docker, '-d', '')
       
       arguments <<- c('-p', selectedFolder, '-c', sample_sheet, htmlreport, barcoded, docker)  
       
