@@ -184,11 +184,11 @@ server <- function(input, output, session) {
     # start checking if something is selected, initially it is integer
     if (!is.integer(input$fastq_folder)) {
       path <- parseDirPath(volumes, input$fastq_folder)
-      if (str_ends(path, 'fastq_pass')) {
+      if (str_ends(path, 'fastq_pass|demux')) {
         notify_success(path, position = 'center-center', timeout = 3000)
         shinyjs::enable('start')
       } else {
-        notify_failure('Select a fastq_pass folder!', position = 'center-center', timeout = 3000)
+        notify_failure('Select a fastq_pass or demux folder!', position = 'center-center', timeout = 3000)
         shinyjs::disable('start')
       }
     }
