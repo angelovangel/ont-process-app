@@ -27,6 +27,7 @@ library(sparkline)
 library(parallelMap)
 library(jsonlite)
 library(htmlwidgets)
+library(scales)
 #### needed by faster-report, load here to have them managed by renv and not have to use docker..
 
 bin_on_path = function(bin) {
