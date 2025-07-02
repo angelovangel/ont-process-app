@@ -119,7 +119,7 @@ server <- function(input, output, session) {
   
   iv <- InputValidator$new()
   iv$add_rule('sample_name', sv_required())
-  iv$add_rule('sample_name', sv_regex(pattern = "^\\w{3,}$", message = "At least 3 alphanumerics and underscore, no white space"))
+  iv$add_rule('sample_name', sv_regex(pattern = "^[A-Za-z0-9_-]{3,}$", message = "At least 3 alphanumerics, underscore, dash, no white space"))
   iv$enable()
   
   # reactives
@@ -285,6 +285,10 @@ server <- function(input, output, session) {
       if (sum(c('sample', 'barcode') %in% colnames(x)) != 2) {
         notify_failure('Samplesheet must have columns "sample" and "barcode"', position = 'center-center', timeout = 5000)
         shinyjs::disable('start')
+      # check for valid sample names  
+      } else if ( !all(str_detect(string = x$sample, pattern = "^[A-Za-z0-9_-]{3,}$"), na.rm = T)  ) {
+        notify_failure('Samplesheet contains invalid sample names', position = 'center-center', timeout = 5000)
+        shinyjs::disable('start')
       } else {
         notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
         #shinyjs::enable('start')
@@ -294,6 +298,10 @@ server <- function(input, output, session) {
       y <- read_excel(samplesheet()$datapath)
       if (sum(c('sample', 'barcode') %in% colnames(y)) != 2) {
         notify_failure('Samplesheet must have columns "sample" and "barcode"', position = 'center-center', timeout = 5000)
+        shinyjs::disable('start')
+      # check valid sample names
+      } else if ( !all(str_detect(string = y$sample, pattern = "^[A-Za-z0-9_-]{3,}$"), na.rm = T)  ) {
+        notify_failure('Samplesheet contains invalid sample names', position = 'center-center', timeout = 5000)
         shinyjs::disable('start')
       } else {
         notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
