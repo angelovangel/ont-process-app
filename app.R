@@ -28,6 +28,7 @@ library(parallelMap)
 library(jsonlite)
 library(htmlwidgets)
 library(scales)
+source('global.R')
 #### needed by faster-report, load here to have them managed by renv and not have to use docker..
 
 bin_on_path = function(bin) {
@@ -103,7 +104,7 @@ ui <- page_navbar(
     layout_column_wrap(
       #width = 1/2,
       width = NULL, height = 500, fill = TRUE,
-      style = htmltools::css(grid_template_columns = "1fr 3fr"),
+      style = htmltools::css(grid_template_columns = "1fr 2fr"),
       !!!cards
     )
   )
