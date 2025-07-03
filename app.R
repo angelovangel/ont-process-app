@@ -273,13 +273,13 @@ server <- function(input, output, session) {
       # deal with samplesheets lacking complete final line, e.g. CRLF
       # read 2 times, first time to capture warning
       x <- tryCatch(
-        read.csv(samplesheet()$datapath, header = T),
+        read.csv(samplesheet()$datapath, header = T, na.strings = c("", " ","NA")),
         warning = function(w) {w}
       )
       if (inherits(x, 'simpleWarning')) {
         notify_warning(x$message, position = 'center-center', timeout = 3000)
         #notify_warning('This samplesheet will work but the last sample may be omitted', position = 'center-center', timeout = 5000)
-        x <- read.csv(samplesheet()$datapath, header = T)
+        x <- read.csv(samplesheet()$datapath, header = T, na.strings = c("", " ","NA"))
       }
       # check if sample and barcode columns are present
       if (sum(c('sample', 'barcode') %in% colnames(x)) != 2) {
@@ -289,19 +289,27 @@ server <- function(input, output, session) {
       } else if ( !all(str_detect(string = x$sample, pattern = "^[A-Za-z0-9_-]{3,}$"), na.rm = T)  ) {
         notify_failure('Samplesheet contains invalid sample names', position = 'center-center', timeout = 5000)
         shinyjs::disable('start')
+      # check for valid barcode names
+      } else if ( !all(str_detect(string = x$barcode, pattern = "^[A-Za-z0-9_-]{3,}$"), na.rm = T)  ) {
+        notify_failure('Barcode column contains invalid names', position = 'center-center', timeout = 5000)
+        shinyjs::disable('start')
       } else {
         notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
         #shinyjs::enable('start')
       }
       x
     } else if (ext == 'xlsx') {
-      y <- read_excel(samplesheet()$datapath)
+      y <- read_excel(samplesheet()$datapath, na = c("NA", "", " "))
       if (sum(c('sample', 'barcode') %in% colnames(y)) != 2) {
         notify_failure('Samplesheet must have columns "sample" and "barcode"', position = 'center-center', timeout = 5000)
         shinyjs::disable('start')
       # check valid sample names
       } else if ( !all(str_detect(string = y$sample, pattern = "^[A-Za-z0-9_-]{3,}$"), na.rm = T)  ) {
         notify_failure('Samplesheet contains invalid sample names', position = 'center-center', timeout = 5000)
+        shinyjs::disable('start')
+      # check for valid barcode names
+      } else if ( !all(str_detect(string = y$barcode, pattern = "^[A-Za-z0-9_-]{3,}$"), na.rm = T)  ) {
+        notify_failure('Barcode column contains invalid names', position = 'center-center', timeout = 5000)
         shinyjs::disable('start')
       } else {
         notify_success('Samplesheet OK', position = 'center-center', timeout = 3000)
