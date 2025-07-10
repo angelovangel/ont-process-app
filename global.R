@@ -52,11 +52,11 @@ validate_samplesheet <- function(x) {
   }
   
   # sample names unique
-  grouped_df <- df %>% group_by(sample) %>% summarise(n_samples = n())
+  grouped_df <- df %>% group_by(sample) %>% mutate(n_samples = n())
   snames_vector <- grouped_df$n_samples == 1
   if (any(!snames_vector)) {
     res$a <- FALSE
-    res$c <- which(!snames_vector)
+    res$c <- c(res$c, which(!snames_vector))
     res$d <- 'Sample names must be unique!'
   }
   
@@ -64,7 +64,7 @@ validate_samplesheet <- function(x) {
   sn_vector <- str_detect(df$sample, sn_pattern)
   if(!all(sn_vector)) {
     res$a <- FALSE
-    res$c <- which(!sn_vector)
+    res$c <- c(res$c, which(!sn_vector))
     res$d <- 'Sample names not valid!'
   }
   
@@ -72,7 +72,7 @@ validate_samplesheet <- function(x) {
   bc_vector <- str_detect(df$barcode, bc_pattern)
   if (!all(bc_vector)) {
     res$a <- FALSE
-    res$c <- which(!bc_vector)
+    res$c <- c(res$c, which(!bc_vector))
     res$d <- 'Barcode names not valid!'
   }
   

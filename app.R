@@ -224,7 +224,7 @@ server <- function(input, output, session) {
         )
     }, 
       message = function(m) {
-        shinyjs::html(id = "stdout", html = m$message, add = TRUE); 
+        shinyjs::html(id = "stdout", html = m$message, add = TRUE)
         runjs("document.getElementById('stdout').parentElement.scrollTo({ top: 1e9, behavior: 'smooth' });") 
         #runjs("window.scrollTo(0,9999);")
       }
@@ -243,10 +243,11 @@ server <- function(input, output, session) {
         report_hash <- sprintf("%s-%s.html", 'faster-report', digest::digest(runif(1), algo = 'crc32') )
         pathtoreport <- paste0(dirname(selectedFolder), '/processed/faster-report.html')
         system2('cp', args = c(pathtoreport, paste0('www/', report_hash)))
-        shinyjs::html('stdout', paste0('Copying ', report_hash), add = T)
+        #shinyjs::html('stdout', paste0('Copying ', report_hash), add = T)
+        
         output$download_report <- renderUI({
           actionButton(
-            'report', 'View HTML report', 
+            'report', 'View HTML report',
             onclick = sprintf("window.open('%s', '_blank')", report_hash)
           )
         })
