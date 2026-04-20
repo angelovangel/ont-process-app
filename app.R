@@ -14,6 +14,7 @@ library(digest)
 library(readxl)
 library(digest)
 library(shinyvalidate)
+library(shinymanager)
 
 #### needed by faster-report, load here to have them managed by renv and not have to use docker..
 library(optparse)
@@ -109,8 +110,17 @@ ui <- page_navbar(
     )
   )
 )
+### secure app -----------------------------###
+ui <- secure_app(ui,theme = "simplex")
+credentials <- readRDS("credentials.rds")
 
 server <- function(input, output, session) {
+  
+  ### secure app -----------------------------###
+  res_auth <- secure_server(
+    check_credentials = check_credentials(credentials)
+  )
+
   # check ont-process-run.sh is on path
   if (!bin_on_path('ont-process-run.sh')) {
     notify_failure('ont-process-run.sh not found', position = 'center-bottom')
