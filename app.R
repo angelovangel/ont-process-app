@@ -37,6 +37,16 @@ bin_on_path = function(bin) {
   return(exit_code == 0)
 }
 
+kill_process_tree <- function(pid) {
+  # Recursively kill process tree to ensure children are also terminated
+  # Wait up to 2 seconds for the process to exit to prevent .fuse_hidden files
+  cmd <- sprintf("killtree() { local pid=$1; kill -stop $pid 2>/dev/null; for child in $(pgrep -P $pid 2>/dev/null); do killtree $child; done; kill -TERM $pid 2>/dev/null; }; killtree %1$d; for i in {1..10}; do if ! kill -0 %1$d 2>/dev/null; then break; fi; sleep 0.2; done", pid)
+  tryCatch(
+    system(cmd, ignore.stdout = TRUE, ignore.stderr = TRUE),
+    error = function(e) NULL
+  )
+}
+
 emptysheet <- tibble(
   #well = lapply(1:12, function(x) {str_c(LETTERS[1:8], x)}) %>% unlist(),
   sample = NA,
@@ -423,11 +433,7 @@ server <- function(input, output, session) {
     if (file.exists(sf)) {
       state <- tryCatch(readRDS(sf), error = function(e) NULL)
       if (!is.null(state$pid) && !is.na(state$pid)) {
-        # Send SIGTERM; ignore errors if process already gone
-        tryCatch(
-          system2("kill", c("-TERM", as.character(state$pid)), stdout = FALSE, stderr = FALSE),
-          error = function(e) NULL
-        )
+        kill_process_tree(state$pid)
       }
       # 2. Remove the user state file
       file.remove(sf)
@@ -449,11 +455,7 @@ server <- function(input, output, session) {
     if (file.exists(sf)) {
       state <- tryCatch(readRDS(sf), error = function(e) NULL)
       if (!is.null(state$pid) && !is.na(state$pid)) {
-        # Send SIGTERM; ignore errors if process already gone
-        tryCatch(
-          system2("kill", c("-TERM", as.character(state$pid)), stdout = FALSE, stderr = FALSE),
-          error = function(e) NULL
-        )
+        kill_process_tree(state$pid)
       }
       # 2. Remove the user state file
       file.remove(sf)
