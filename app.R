@@ -60,17 +60,15 @@ sidebar <- sidebar(
     shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
     tags$hr(),
     checkboxInput('report', 'Generate html report', value = T),
-    conditionalPanel(
-      condition = "input.report",
-      checkboxInput('docker', 'Used docker for report', value = F)
-    ),
     #uiOutput('usedocker'),
     actionButton('start', 'Start processing'),
     div(style="margin-bottom:10px"),
     actionButton('reset', 'Reset inputs'),
     div(style="margin-bottom:10px"),
     uiOutput('download_report')
-  )
+  ),
+  div(style="margin-bottom:10px"),
+  shinyjs::hidden(actionButton('kill', 'Kill process and cleanup', class = 'btn-danger', style = 'width:100%'))
 )
 
 cards <- list(
@@ -201,6 +199,7 @@ server <- function(input, output, session) {
         rv$selected_folder <- state$selected_folder
         
         shinyjs::disable('controls')
+        shinyjs::show('kill')
         shinyjs::html(id = 'start', 'Please wait...')
         show_spinner()
         notify_success('Reconnected to running process', position = 'center-bottom')
@@ -264,8 +263,7 @@ server <- function(input, output, session) {
         
         htmlreport <- ifelse(input$report, '-r', '')
         barcoded   <- ifelse(input$barcoded, '', '-n')
-        docker     <- ifelse(input$docker, '-d', '')
-        rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, barcoded, docker)
+        rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, barcoded)
         
         cat(
           'Selected folder:\n', selectedFolder, '\n', '-------\n\n',
@@ -298,6 +296,7 @@ server <- function(input, output, session) {
     isolate({
       rv$is_running <- FALSE
       shinyjs::enable('controls')
+      shinyjs::hide('kill')
       shinyjs::html(id = 'start', 'Start processing')
       hide_spinner()
       
@@ -413,6 +412,7 @@ server <- function(input, output, session) {
     
     # Update UI
     shinyjs::disable('controls')
+    shinyjs::show('kill')
     shinyjs::html(id = 'start', 'Please wait...')
     show_spinner()
   })
@@ -441,6 +441,37 @@ server <- function(input, output, session) {
     
     # 4. Reload the session (resets all inputs / reactive state)
     session$reload()
+  })
+  
+  observeEvent(input$kill, {
+    # 1. Kill running process if one exists
+    sf <- user_state_file()
+    if (file.exists(sf)) {
+      state <- tryCatch(readRDS(sf), error = function(e) NULL)
+      if (!is.null(state$pid) && !is.na(state$pid)) {
+        # Send SIGTERM; ignore errors if process already gone
+        tryCatch(
+          system2("kill", c("-TERM", as.character(state$pid)), stdout = FALSE, stderr = FALSE),
+          error = function(e) NULL
+        )
+      }
+      # 2. Remove the user state file
+      file.remove(sf)
+    }
+    
+    # 3. Wipe all run artefacts from tmp (logs, status files, scripts)
+    tmp_files <- list.files(app_tmp_dir, 
+                            pattern = "^run_.*\\.(log|status|sh)$", 
+                            full.names = TRUE)
+    if (length(tmp_files) > 0) file.remove(tmp_files)
+    
+    # 4. Update UI manually without reloading
+    rv$is_running <- FALSE
+    shinyjs::enable('controls')
+    shinyjs::html(id = 'start', 'Start processing')
+    shinyjs::hide('kill')
+    hide_spinner()
+    notify_success('Process killed and cleaned up.', position = 'center-bottom')
   })
   
   # Samplesheet preview
