@@ -78,7 +78,7 @@ sidebar <- sidebar(
     uiOutput('download_report')
   ),
   div(style="margin-bottom:10px"),
-  shinyjs::hidden(actionButton('kill', 'Kill process and cleanup', class = 'btn-danger', style = 'width:100%'))
+  shinyjs::hidden(actionButton('kill', 'Kill process', class = 'btn-danger', style = 'width:100%'))
 )
 
 cards <- list(
@@ -349,11 +349,11 @@ server <- function(input, output, session) {
   observeEvent(input$fastq_folder, {
     if (!is.integer(input$fastq_folder)) {
       path <- parseDirPath(volumes, input$fastq_folder)
-      if (str_ends(path, 'fastq_pass|demux')) {
+      if (str_ends(path, 'fastq_pass|demux|combined')) {
         notify_success(path, position = 'center-center', timeout = 3000)
         shinyjs::enable('start')
       } else {
-        notify_failure('Select a fastq_pass or demux folder!', position = 'center-center', timeout = 3000)
+        notify_failure('Select a folder named fastq_pass, demux or combined!', position = 'center-center', timeout = 3000)
         shinyjs::disable('start')
       }
     }
