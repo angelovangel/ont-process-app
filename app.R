@@ -70,6 +70,12 @@ sidebar <- sidebar(
     shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
     tags$hr(),
     checkboxInput('report', 'Generate html report', value = T),
+    conditionalPanel(
+      condition = "input.report",
+      numericInput('subsample', 'Subsample reads for report', value = 0.1, min = 0.1, max = 1.0, step = 0.1),
+      div(style="margin-bottom:10px")
+    ),
+    
     #uiOutput('usedocker'),
     actionButton('start', 'Start processing'),
     div(style="margin-bottom:10px"),
@@ -272,8 +278,9 @@ server <- function(input, output, session) {
         rv$nfastq <- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
         
         htmlreport <- ifelse(input$report, '-r', '')
+        subsample <- if(input$report) c('-s', input$subsample) else ''
         barcoded   <- ifelse(input$barcoded, '', '-n')
-        rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, barcoded)
+        rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, subsample, barcoded)
         
         cat(
           'Selected folder:\n', selectedFolder, '\n', '-------\n\n',
