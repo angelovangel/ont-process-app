@@ -256,6 +256,27 @@ server <- function(input, output, session) {
     }
   )
   
+  # --- Build arguments reactively (independent of render) ---
+  observe({
+    if (is.integer(input$fastq_folder)) return()
+    
+    selectedFolder <- parseDirPath(volumes, input$fastq_folder)
+    rv$selected_folder <- selectedFolder
+    
+    if (input$barcoded && !is.null(samplesheet()$datapath)) {
+      rv$sample_sheet <- samplesheet()$datapath
+    } else {
+      rv$sample_sheet <- input$sample_name
+    }
+    
+    rv$nfastq <- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
+    
+    htmlreport <- ifelse(input$report, '-r', '')
+    subsample <- if(input$report) c('-s', input$subsample) else ''
+    barcoded   <- ifelse(input$barcoded, '', '-n')
+    rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, subsample, barcoded)
+  })
+  
   # --- Terminal output: command preview OR streaming log ---
   output$stdout <- renderPrint({
     if (rv$show_log) {
@@ -266,24 +287,8 @@ server <- function(input, output, session) {
         cat("No fastq folder selected\n")
         shinyjs::disable('start')
       } else {
-        selectedFolder <- parseDirPath(volumes, input$fastq_folder)
-        rv$selected_folder <- selectedFolder
-        
-        if (input$barcoded && !is.null(samplesheet()$datapath)) {
-          rv$sample_sheet <- samplesheet()$datapath
-        } else {
-          rv$sample_sheet <- input$sample_name
-        }
-        
-        rv$nfastq <- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
-        
-        htmlreport <- ifelse(input$report, '-r', '')
-        subsample <- if(input$report) c('-s', input$subsample) else ''
-        barcoded   <- ifelse(input$barcoded, '', '-n')
-        rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, subsample, barcoded)
-        
         cat(
-          'Selected folder:\n', selectedFolder, '\n', '-------\n\n',
+          'Selected folder:\n', rv$selected_folder, '\n', '-------\n\n',
           'Number of fastq files:\n', rv$nfastq, '\n', '-------\n\n',
           'Command:\n',
           'ont-process-run.sh', rv$arguments
