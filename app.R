@@ -256,25 +256,41 @@ server <- function(input, output, session) {
     }
   )
   
-  # --- Build arguments reactively (independent of render) ---
-  observe({
-    if (is.integer(input$fastq_folder)) return()
-    
-    selectedFolder <- parseDirPath(volumes, input$fastq_folder)
-    rv$selected_folder <- selectedFolder
-    
-    if (isTRUE(input$barcoded) && !is.null(samplesheet()$datapath)) {
-      rv$sample_sheet <- samplesheet()$datapath
+  # --- Reactive helpers for folder, samplesheet, files, and arguments ---
+  selected_folder_path <- reactive({
+    if (is.integer(input$fastq_folder)) return(NULL)
+    parseDirPath(volumes, input$fastq_folder)
+  })
+  
+  sample_sheet_val <- reactive({
+    if (isTRUE(input$barcoded)) {
+      if (!is.null(samplesheet()$datapath)) {
+        samplesheet()$datapath
+      } else {
+        NULL
+      }
     } else {
-      rv$sample_sheet <- input$sample_name
+      input$sample_name
     }
+  })
+  
+  nfastq_val <- reactive({
+    folder <- selected_folder_path()
+    if (is.null(folder)) return(0)
+    length(list.files(path = folder, pattern = "*fast(q|q.gz)$", recursive = isTRUE(input$barcoded)))
+  })
+  
+  computed_arguments <- reactive({
+    folder <- selected_folder_path()
+    if (is.null(folder)) return(NULL)
     
-    rv$nfastq <- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = isTRUE(input$barcoded)))
-    
+    sheet <- sample_sheet_val()
     htmlreport <- ifelse(isTRUE(input$report), '-r', '')
-    subsample <- if(isTRUE(input$report)) c('-s', input$subsample) else ''
+    subsample <- if(isTRUE(input$report) && !is.null(input$subsample)) c('-s', input$subsample) else ''
     barcoded   <- ifelse(isTRUE(input$barcoded), '', '-n')
-    rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, subsample, barcoded)
+    
+    args <- c('-p', folder, '-c', sheet, htmlreport, subsample, barcoded)
+    args[args != ""]
   })
   
   # --- Terminal output: command preview OR streaming log ---
@@ -283,15 +299,16 @@ server <- function(input, output, session) {
       cat(poll_log_content())
     } else {
       # Command preview mode
-      if (is.integer(input$fastq_folder)) {
+      folder <- selected_folder_path()
+      if (is.null(folder)) {
         cat("No fastq folder selected\n")
         shinyjs::disable('start')
       } else {
         cat(
-          'Selected folder:\n', rv$selected_folder, '\n', '-------\n\n',
-          'Number of fastq files:\n', rv$nfastq, '\n', '-------\n\n',
+          'Selected folder:\n', folder, '\n', '-------\n\n',
+          'Number of fastq files:\n', nfastq_val(), '\n', '-------\n\n',
           'Command:\n',
-          'ont-process-run.sh', rv$arguments
+          'ont-process-run.sh', computed_arguments()
         )
       }
     }
@@ -376,12 +393,12 @@ server <- function(input, output, session) {
       notify_failure('Please select a fastq_pass folder!', position = 'center-bottom')
       return()
     }
-    if (!input$barcoded && !iv$is_valid()) {
+    if (!isTRUE(input$barcoded) && !iv$is_valid()) {
       notify_failure('Please fix sample name!', position = 'center-bottom')
       return()
     }
     
-    args_clean <- rv$arguments[rv$arguments != ""]
+    args_clean <- computed_arguments()
     
     # Files inside app_tmp_dir (survives R restarts)
     run_id      <- digest::digest(Sys.time(), algo = 'crc32')
@@ -421,6 +438,7 @@ server <- function(input, output, session) {
     rv$is_running       <- TRUE
     rv$show_log         <- TRUE
     rv$report_requested <- input$report
+    rv$selected_folder  <- selected_folder_path()
     
     # Persist state for reconnect
     sf <- user_state_file()
