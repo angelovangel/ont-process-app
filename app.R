@@ -263,17 +263,17 @@ server <- function(input, output, session) {
     selectedFolder <- parseDirPath(volumes, input$fastq_folder)
     rv$selected_folder <- selectedFolder
     
-    if (input$barcoded && !is.null(samplesheet()$datapath)) {
+    if (isTRUE(input$barcoded) && !is.null(samplesheet()$datapath)) {
       rv$sample_sheet <- samplesheet()$datapath
     } else {
       rv$sample_sheet <- input$sample_name
     }
     
-    rv$nfastq <- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = input$barcoded))
+    rv$nfastq <- length(list.files(path = selectedFolder, pattern = "*fast(q|q.gz)$", recursive = isTRUE(input$barcoded)))
     
-    htmlreport <- ifelse(input$report, '-r', '')
-    subsample <- if(input$report) c('-s', input$subsample) else ''
-    barcoded   <- ifelse(input$barcoded, '', '-n')
+    htmlreport <- ifelse(isTRUE(input$report), '-r', '')
+    subsample <- if(isTRUE(input$report)) c('-s', input$subsample) else ''
+    barcoded   <- ifelse(isTRUE(input$barcoded), '', '-n')
     rv$arguments <- c('-p', selectedFolder, '-c', rv$sample_sheet, htmlreport, subsample, barcoded)
   })
   
