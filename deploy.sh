@@ -245,6 +245,36 @@ fi
 log_success "Directories created: logs, data"
 
 # ==============================================================================
+# Fetch ont-process-run.sh
+# ==============================================================================
+log_info "Checking for ont-process-run.sh..."
+if ! command -v ont-process-run.sh >/dev/null 2>&1; then
+    log_info "Downloading ont-process-run.sh..."
+    temp_script="/tmp/ont-process-run_$$"
+    if curl -fsSL "https://raw.githubusercontent.com/angelovangel/etc/refs/heads/master/bin/ont-process-run.sh" -o "$temp_script"; then
+        chmod +x "$temp_script"
+        target_dir="/usr/local/bin"
+        if [ -w "$target_dir" ]; then
+            mv "$temp_script" "${target_dir}/ont-process-run.sh"
+            log_success "ont-process-run.sh installed to ${target_dir}."
+        elif [ -n "$SUDO" ]; then
+            $SUDO mv "$temp_script" "${target_dir}/ont-process-run.sh"
+            log_success "ont-process-run.sh installed to ${target_dir}."
+        else
+            user_bin="$HOME/.local/bin"
+            mkdir -p "$user_bin"
+            mv "$temp_script" "${user_bin}/ont-process-run.sh"
+            export PATH="${user_bin}:$PATH"
+            log_success "ont-process-run.sh installed to ${user_bin}."
+        fi
+    else
+        log_error "Failed to download ont-process-run.sh"
+    fi
+else
+    log_success "ont-process-run.sh is already available in PATH."
+fi
+
+# ==============================================================================
 # Setup credentials.rds
 # ==============================================================================
 log_info "Configuring credentials.rds..."

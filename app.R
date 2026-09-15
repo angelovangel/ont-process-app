@@ -15,22 +15,11 @@ library(readxl)
 library(digest)
 library(shinyvalidate)
 library(shinymanager)
-
-#### needed by faster-report, load here to have them managed by renv and not have to use docker..
-library(optparse)
-library(R.utils)
-library(funr)
-#library(writexl)
-library(knitr)
-#library(DT)
 library(reactable)
-library(sparkline)
-library(parallelMap)
-library(jsonlite)
-library(htmlwidgets)
-library(scales)
+
+
 source('global.R')
-#### needed by faster-report, load here to have them managed by renv and not have to use docker..
+
 
 bin_on_path = function(bin) {
   exit_code = suppressWarnings(system2("command", args = c("-v", bin), stdout = FALSE))
@@ -79,7 +68,7 @@ sidebar <- sidebar(
     #uiOutput('usedocker'),
     actionButton('start', 'Start processing'),
     div(style="margin-bottom:10px"),
-    actionButton('reset', 'Reset inputs'),
+    actionButton('reset', 'Reset inputs', class = 'btn-warning'),
     div(style="margin-bottom:10px"),
     uiOutput('download_report')
   ),
@@ -475,8 +464,23 @@ server <- function(input, output, session) {
                             full.names = TRUE)
     if (length(tmp_files) > 0) file.remove(tmp_files)
     
-    # 4. Reload the session (resets all inputs / reactive state)
-    session$reload()
+    # 4. Reset inputs using shinyjs and clear reactive state
+    shinyjs::reset('controls')
+    rv$selected_folder <- NULL
+    rv$sample_sheet <- NULL
+    rv$nfastq <- NULL
+    rv$arguments <- NULL
+    rv$log_file <- NULL
+    rv$status_file <- NULL
+    rv$is_running <- FALSE
+    rv$show_log <- FALSE
+    rv$report_requested <- FALSE
+    
+    # Reset UI elements
+    shinyjs::enable('controls')
+    shinyjs::hide('kill')
+    shinyjs::html(id = 'start', 'Start processing')
+    hide_spinner()
   })
   
   observeEvent(input$kill, {
