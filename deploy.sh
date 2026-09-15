@@ -37,6 +37,8 @@ APP_USER="${APP_USER:-}"
 APP_PASS="${APP_PASS:-}"
 SHINY_PORT="${SHINY_PORT:-$SHINY_PORT_DEFAULT}"
 CURRENT_USER="${USER:-$(id -un 2>/dev/null || echo "root")}" 
+SERVICE_USER="${SUDO_USER:-${CURRENT_USER}}"
+SERVICE_GROUP="$(id -gn "${SERVICE_USER}" 2>/dev/null || echo "users")"
 SKIP_SYS_DEPS=false
 SKIP_SYSTEMD=false
 NON_INTERACTIVE=false
@@ -237,6 +239,9 @@ fi
 log_info "Setting up application directories..."
 mkdir -p "${APP_DIR}/logs"
 mkdir -p "${APP_DIR}/data"
+if [ -n "$SUDO" ]; then
+    $SUDO chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${APP_DIR}/logs" "${APP_DIR}/data"
+fi
 log_success "Directories created: logs, data"
 
 # ==============================================================================
@@ -288,6 +293,9 @@ else
     " "$APP_USER" "$APP_PASS"
 
     chmod 600 credentials.rds
+    if [ -n "$SUDO" ]; then
+        $SUDO chown "${SERVICE_USER}:${SERVICE_GROUP}" credentials.rds
+    fi
     log_success "credentials.rds generated successfully."
 fi
 
@@ -418,8 +426,6 @@ if [ "$SKIP_SYSTEMD" = false ] && command -v systemctl >/dev/null 2>&1; then
     log_info "Setting up systemd service for ont-process-app..."
 
     R_BIN="$(command -v R || echo "/usr/bin/R")"
-    SERVICE_USER="${SUDO_USER:-${CURRENT_USER}}"
-    SERVICE_GROUP="$(id -gn "${SERVICE_USER}" 2>/dev/null || echo "users")"
     SERVICE_HOME="$(getent passwd "${SERVICE_USER}" 2>/dev/null | cut -d: -f6 || echo "/home/${SERVICE_USER}")"
 
     # --- Shiny App Service ---
@@ -533,6 +539,8 @@ echo ""
 echo -e "${BOLD}Useful Management Commands:${NC}"
 echo -e "   Check status:  sudo systemctl status ont-process-app"
 echo -e "   Restart app:   sudo systemctl restart ont-process-app"
+echo -e "   Stop app:      sudo systemctl stop ont-process-app"
+echo -e "   Remove app:    sudo systemctl disable --now ont-process-app && sudo rm /etc/systemd/system/ont-process-app.service && sudo systemctl daemon-reload"
 echo -e "   View app logs: sudo journalctl -u ont-process-app -f (or tail -f logs/shiny-app.log)"
 echo ""
 echo -e "${BOLD}Note:${NC} Nextflow pipelines will run with Docker/Singularity as configured."
