@@ -373,21 +373,22 @@ Rscript -e '
       options(repos = c(CRAN = source_repo))
       renv::restore(repos = c(CRAN = source_repo), prompt = FALSE, retry = TRUE)
     }
-  } else {
-    message("renv.lock not found, installing required packages directly...")
-    pkgs <- c("shiny", "jsonlite", "bslib", "bsicons", "stringr", 
-              "dplyr", "shinyvalidate", "shinyFiles", "shinyjs", 
-              "processx", "digest", "hover", "reactable", "prettyunits", 
-              "shinymanager", "fs")
-    for (pkg in pkgs) {
-      if (!requireNamespace(pkg, quietly = TRUE)) {
-        tryCatch({
-          install.packages(pkg, repos = binary_repo)
-        }, error = function(e) {
-          message("Binary install for ", pkg, " failed, falling back to source...")
-          install.packages(pkg, repos = source_repo)
-        })
-      }
+  }
+  
+  message("Checking and installing any missing core packages directly...")
+  pkgs <- c("shiny", "jsonlite", "bslib", "bsicons", "stringr", 
+            "dplyr", "shinyvalidate", "shinyFiles", "shinyjs", 
+            "processx", "digest", "hover", "reactable", "prettyunits", 
+            "shinymanager", "fs")
+  for (pkg in pkgs) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("Installing missing package: ", pkg)
+      tryCatch({
+        install.packages(pkg, repos = binary_repo)
+      }, error = function(e) {
+        message("Binary install for ", pkg, " failed, falling back to source...")
+        install.packages(pkg, repos = source_repo)
+      })
     }
   }
 '
