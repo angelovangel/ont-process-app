@@ -361,7 +361,7 @@ Rscript -e '
   if (file.exists("renv.lock")) {
     message("Restoring environment from renv.lock (attempting pre-built binaries from ", binary_repo, ")...")
     res <- tryCatch({
-      renv::restore(repos = c(CRAN = binary_repo), prompt = FALSE)
+      renv::restore(repos = c(CRAN = binary_repo), prompt = FALSE, retry = TRUE)
       TRUE
     }, error = function(e) {
       message("Binary restore failed: ", e$message)
@@ -371,7 +371,7 @@ Rscript -e '
     
     if (!res) {
       options(repos = c(CRAN = source_repo))
-      renv::restore(repos = c(CRAN = source_repo), prompt = FALSE)
+      renv::restore(repos = c(CRAN = source_repo), prompt = FALSE, retry = TRUE)
     }
   } else {
     message("renv.lock not found, installing required packages directly...")
