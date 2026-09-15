@@ -53,10 +53,9 @@ sidebar <- sidebar(
     uiOutput('nonbc_sample_name'),
     conditionalPanel(
       condition = "input.barcoded",
-      fileInput('upload', 'Upload sample sheet', 
-                multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file')
+      uiOutput('upload_ui')
     ),
-    shinyDirButton("fastq_folder", "Select fastq_pass folder", title ='Please select a fastq_pass folder from a run', multiple = F),
+    uiOutput('fastq_folder_ui'),
     tags$hr(),
     checkboxInput('report', 'Generate html report', value = T),
     conditionalPanel(
@@ -78,6 +77,8 @@ sidebar <- sidebar(
 
 cards <- list(
   card1 <- card(
+    height = "100%",
+    style = "flex: 1 1 auto; width: 100%;",
     card_title(
       'Samplesheet preview',  
       tooltip(
@@ -85,10 +86,12 @@ cards <- list(
         "Upload xlsx/csv with columns 'sample' and 'barcode'. Could have other columns too",
         placement = "right")
     ),
-    reactableOutput('samplesheet')
+    reactableOutput('samplesheet', height = "100%")
   ),
 
   card2 <- card(
+    height = "100%",
+    style = "flex: 1 1 auto; width: 100%;",
     card_title(
       'Live terminal view',
       tooltip(
@@ -96,7 +99,10 @@ cards <- list(
         "Preview of the terminal, for viewing the selected parameters and monitor output",
         placement = "right")
     ),
-    verbatimTextOutput('stdout')
+    div(
+      style = "height: 100%; overflow: auto;",
+      verbatimTextOutput('stdout')
+    )
   )
 )
 
@@ -105,16 +111,49 @@ ui <- page_navbar(
   fillable = T,
   title = 'ONT process run app',
   theme = bs_theme(bootswatch = 'yeti', primary = '#196F3D'),
+  tags$head(tags$style(HTML("
+    .btn-selected-ok, .btn-selected-ok:hover, .btn-selected-ok:focus {
+      background-color: #d4efdf !important;
+      border-color: #a9dfbf !important;
+      color: #1e6b3a !important;
+    }
+  "))),
   sidebar = sidebar,
   nav_panel(
     use_busy_spinner(spin = "double-bounce", position = 'top-right', color = '#E67E22'),
     title = '',
-    layout_column_wrap(
-      #width = 1/2,
-      width = NULL, height = 500, fill = TRUE,
-      style = htmltools::css(grid_template_columns = "1fr 2fr"),
-      !!!cards
-    )
+    fillable = TRUE,
+    div(
+      style = "display: flex; height: 100%; min-height: 0;",
+      div(
+        id = "leftPanel",
+        style = "overflow: auto; width: 33%; min-width: 20%; max-width: 80%; display: flex; flex-direction: column;",
+        card1
+      ),
+      div(
+        id = "dragbar",
+        style = "width: 16px; flex: 0 0 16px; cursor: col-resize; display: flex; align-items: center; justify-content: center; color: #999;",
+        bsicons::bs_icon("grip-vertical")
+      ),
+      div(
+        id = "rightPanel",
+        style = "flex-grow: 1; overflow: auto; display: flex; flex-direction: column; min-width: 0;",
+        card2
+      )
+    ),
+    tags$script(HTML("
+      $(document).on('mousedown', '#dragbar', function(e) {
+        e.preventDefault();
+        var container = $('#leftPanel').parent();
+        $(document).on('mousemove.dragbar', function(e) {
+          var newWidth = e.pageX - container.offset().left;
+          $('#leftPanel').css({'width': newWidth + 'px', 'flex': '0 0 ' + newWidth + 'px'});
+        });
+        $(document).on('mouseup.dragbar', function() {
+          $(document).off('mousemove.dragbar mouseup.dragbar');
+        });
+      });
+    "))
   )
 )
 ### secure app -----------------------------###
@@ -152,6 +191,12 @@ server <- function(input, output, session) {
     show_log        = FALSE,  # TRUE once a run has started (stays TRUE after completion)
     report_requested = FALSE
   )
+  
+  # --- Counters used to force fresh fileInput/shinyDirButton widgets on reset ---
+  # (fileInput and shinyDirButton can't be reset via shinyjs::reset; re-rendering
+  #  them with a new input id is the standard workaround)
+  upload_id <- reactiveVal(0)
+  dir_id    <- reactiveVal(0)
   
   # --- Per-user state file (persists across reconnects) ---
   user_state_file <- reactive({
@@ -213,7 +258,7 @@ server <- function(input, output, session) {
   })
   
   # --- Reactives ---
-  samplesheet <- reactive({ input$upload })
+  samplesheet <- reactive({ input[[paste0('upload_', upload_id())]] })
   
   # render sample name input if nonbc run
   output$nonbc_sample_name <- renderUI({
@@ -222,13 +267,33 @@ server <- function(input, output, session) {
     }
   })
   
+  # Re-rendered with a fresh input id whenever upload_id() changes (e.g. on reset)
+  output$upload_ui <- renderUI({
+    fileInput(paste0('upload_', upload_id()), 'Upload sample sheet',
+              multiple = F, accept = c('.xlsx', '.csv'), placeholder = 'xlsx or csv file')
+  })
+  
+  # Re-rendered with a fresh input id whenever dir_id() changes (e.g. on reset)
+  output$fastq_folder_ui <- renderUI({
+    shinyDirButton(paste0('fastq_folder_', dir_id()), "Select fastq_pass folder",
+                   title = 'Please select a fastq_pass folder from a run', multiple = F)
+  })
+  
   # dir choose management --------------------------------------
   default_path <- Sys.getenv('DEFAULT_PATH')
   volumes <- c(ont_data = default_path, getVolumes()())
-  shinyDirChoose(input, "fastq_folder", 
-                 roots = volumes,
-                 session = session,
-                 restrictions = system.file(package = "base")) 
+  
+  # Re-register shinyDirChoose against the current dynamic id (fires once at
+  # startup too, matching the initial dir_id() == 0 widget)
+  observeEvent(dir_id(), {
+    shinyDirChoose(input, paste0('fastq_folder_', dir_id()),
+                   roots = volumes,
+                   session = session,
+                   restrictions = system.file(package = "base"))
+  })
+  
+  # Current value of the (dynamically-id'd) folder-choose input
+  fastq_folder_val <- reactive({ input[[paste0('fastq_folder_', dir_id())]] })
   
   # --- Poll log file every 500ms (active whether running or just showing final output) ---
   poll_log_content <- reactivePoll(
@@ -247,8 +312,9 @@ server <- function(input, output, session) {
   
   # --- Reactive helpers for folder, samplesheet, files, and arguments ---
   selected_folder_path <- reactive({
-    if (is.integer(input$fastq_folder)) return(NULL)
-    parseDirPath(volumes, input$fastq_folder)
+    fv <- fastq_folder_val()
+    if (is.null(fv) || is.integer(fv)) return(NULL)
+    parseDirPath(volumes, fv)
   })
   
   sample_sheet_val <- reactive({
@@ -364,21 +430,24 @@ server <- function(input, output, session) {
   
   # --- Observers ---
   # Validate selected folder name
-  observeEvent(input$fastq_folder, {
-    if (!is.integer(input$fastq_folder)) {
-      path <- parseDirPath(volumes, input$fastq_folder)
+  observeEvent(fastq_folder_val(), {
+    fv <- fastq_folder_val()
+    if (!is.null(fv) && !is.integer(fv)) {
+      path <- parseDirPath(volumes, fv)
       if (str_ends(path, 'fastq_pass|demux|combined')) {
         notify_success(path, position = 'center-center', timeout = 3000)
         shinyjs::enable('start')
+        shinyjs::runjs("$('#fastq_folder_ui button').addClass('btn-selected-ok');")
       } else {
         notify_failure('Select a folder named fastq_pass, demux or combined!', position = 'center-center', timeout = 3000)
         shinyjs::disable('start')
+        shinyjs::runjs("$('#fastq_folder_ui button').removeClass('btn-selected-ok');")
       }
     }
   })
   
   observeEvent(input$start, {
-    if (is.integer(input$fastq_folder)) {
+    if (is.null(fastq_folder_val()) || is.integer(fastq_folder_val())) {
       notify_failure('Please select a fastq_pass folder!', position = 'center-bottom')
       return()
     }
@@ -466,6 +535,8 @@ server <- function(input, output, session) {
     
     # 4. Reset inputs using shinyjs and clear reactive state
     shinyjs::reset('controls')
+    upload_id(upload_id() + 1)  # force a fresh, empty fileInput widget
+    dir_id(dir_id() + 1)        # force a fresh, empty shinyDirButton widget
     rv$selected_folder <- NULL
     rv$sample_sheet <- NULL
     rv$nfastq <- NULL
@@ -480,6 +551,9 @@ server <- function(input, output, session) {
     shinyjs::enable('controls')
     shinyjs::hide('kill')
     shinyjs::html(id = 'start', 'Start processing')
+    shinyjs::disable('start')
+    shinyjs::runjs("$('#fastq_folder_ui button').removeClass('btn-selected-ok');")
+    shinyjs::runjs("$('#upload_ui .btn-file').removeClass('btn-selected-ok');")
     hide_spinner()
   })
   
@@ -519,9 +593,11 @@ server <- function(input, output, session) {
     x <- validate_samplesheet(samplesheet()$datapath)
     if(x$a) {
       notify_success(x$d, position = 'center-center')
+      shinyjs::runjs("$('#upload_ui .btn-file').addClass('btn-selected-ok');")
     } else {
       notify_failure(x$d, position = 'center-center')
       shinyjs::disable('start')
+      shinyjs::runjs("$('#upload_ui .btn-file').removeClass('btn-selected-ok');")
     }
     reactable(
       x$b, 
