@@ -275,8 +275,8 @@ server <- function(input, output, session) {
   
   # Re-rendered with a fresh input id whenever dir_id() changes (e.g. on reset)
   output$fastq_folder_ui <- renderUI({
-    shinyDirButton(paste0('fastq_folder_', dir_id()), "Select fastq_pass folder",
-                   title = 'Please select a fastq_pass folder from a run', multiple = F)
+    shinyDirButton(paste0('fastq_folder_', dir_id()), "Select fastq/bam pass folder",
+                   title = 'Please select a fastq_pass/bam_pass folder from a run', multiple = F)
   })
   
   # dir choose management --------------------------------------
@@ -434,7 +434,7 @@ server <- function(input, output, session) {
     fv <- fastq_folder_val()
     if (!is.null(fv) && !is.integer(fv)) {
       path <- parseDirPath(volumes, fv)
-      if (str_ends(path, 'fastq_pass|demux|combined')) {
+      if (str_ends(path, 'fastq_pass|bam_pass|demux|combined')) {
         notify_success(path, position = 'center-center', timeout = 3000)
         shinyjs::enable('start')
         shinyjs::runjs("$('#fastq_folder_ui button').addClass('btn-selected-ok');")
