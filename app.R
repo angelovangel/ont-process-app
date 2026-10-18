@@ -87,9 +87,12 @@ clear_user_run <- function(state_f) {
 # at startup: remove run files no user state refers to (left over from older versions / lost states)
 local({
   states <- list.files(app_tmp_dir, pattern = '^state_.*\\.rds$', full.names = TRUE)
-  keep <- unlist(lapply(states, function(f) run_files(tryCatch(readRDS(f)$log_file, error = function(e) NULL))))
+  keep <- as.character(unlist(lapply(states, function(f) {
+    run_files(tryCatch(readRDS(f)$log_file, error = function(e) NULL))
+  })))
   all_runs <- list.files(app_tmp_dir, pattern = '^run_.*\\.(log|status|sh)$', full.names = TRUE)
-  unlink(setdiff(normalizePath(all_runs), normalizePath(keep, mustWork = FALSE)))
+  # compare by file name (all in app_tmp_dir); base:: as dplyr masks setdiff
+  unlink(all_runs[!basename(all_runs) %in% basename(keep)])
 })
 
 # label with a hover help icon
