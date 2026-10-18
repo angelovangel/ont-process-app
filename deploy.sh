@@ -245,34 +245,36 @@ fi
 log_success "Directories created: logs, data"
 
 # ==============================================================================
-# Fetch ont-process-run.sh
+# Fetch ont-process-run.sh and ont-process-utag.sh
 # ==============================================================================
-log_info "Checking for ont-process-run.sh..."
-if ! command -v ont-process-run.sh >/dev/null 2>&1; then
-    log_info "Downloading ont-process-run.sh..."
-    temp_script="/tmp/ont-process-run_$$"
-    if curl -fsSL "https://raw.githubusercontent.com/angelovangel/etc/refs/heads/master/bin/ont-process-run.sh" -o "$temp_script"; then
+for script in ont-process-run.sh ont-process-utag.sh; do
+    log_info "Checking for ${script}..."
+    if command -v "$script" >/dev/null 2>&1; then
+        log_success "${script} is already available in PATH."
+        continue
+    fi
+    log_info "Downloading ${script}..."
+    temp_script="/tmp/${script%.sh}_$$"
+    if curl -fsSL "https://raw.githubusercontent.com/angelovangel/etc/refs/heads/master/bin/${script}" -o "$temp_script"; then
         chmod +x "$temp_script"
         target_dir="/usr/local/bin"
         if [ -w "$target_dir" ]; then
-            mv "$temp_script" "${target_dir}/ont-process-run.sh"
-            log_success "ont-process-run.sh installed to ${target_dir}."
+            mv "$temp_script" "${target_dir}/${script}"
+            log_success "${script} installed to ${target_dir}."
         elif [ -n "$SUDO" ]; then
-            $SUDO mv "$temp_script" "${target_dir}/ont-process-run.sh"
-            log_success "ont-process-run.sh installed to ${target_dir}."
+            $SUDO mv "$temp_script" "${target_dir}/${script}"
+            log_success "${script} installed to ${target_dir}."
         else
             user_bin="$HOME/.local/bin"
             mkdir -p "$user_bin"
-            mv "$temp_script" "${user_bin}/ont-process-run.sh"
+            mv "$temp_script" "${user_bin}/${script}"
             export PATH="${user_bin}:$PATH"
-            log_success "ont-process-run.sh installed to ${user_bin}."
+            log_success "${script} installed to ${user_bin}."
         fi
     else
-        log_error "Failed to download ont-process-run.sh"
+        log_error "Failed to download ${script}"
     fi
-else
-    log_success "ont-process-run.sh is already available in PATH."
-fi
+done
 
 # ==============================================================================
 # Setup credentials.rds

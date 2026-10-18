@@ -9,3 +9,5 @@ app_cache
 testdata
 credentials.rds
 tmp*
+.claude
+www/utag-plates*
