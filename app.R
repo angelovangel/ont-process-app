@@ -155,10 +155,7 @@ sidebar <- sidebar(
           value = '', placeholder = 'default 16S 27F'),
         textInput('bc_primer_r',
           with_help('Reverse primer (--primer-r)', 'Optional, 5\'->3\'. Leave empty for the default 16S 1492R (RGYTACCTTGTTACGACTT).'),
-          value = '', placeholder = 'default 16S 1492R'),
-        numericInput('bc_threads',
-          with_help('Threads (-t)', 'Number of CPU threads for barbell.'),
-          value = max(1, parallel::detectCores() - 2, na.rm = TRUE), min = 1, step = 1)
+          value = '', placeholder = 'default 16S 1492R')
       ),
       uiOutput('upload_ui')
     ),
@@ -503,8 +500,6 @@ server <- function(input, output, session) {
         args <- c(args, '--primer-f', toupper(trimws(input$bc_primer_f)))
       if (nzchar(trimws(input$bc_primer_r)))
         args <- c(args, '--primer-r', toupper(trimws(input$bc_primer_r)))
-      if (isTRUE(input$bc_threads >= 1))
-        args <- c(args, '-t', as.integer(input$bc_threads))
       args
     } else {
       sheet <- sample_sheet_val()
