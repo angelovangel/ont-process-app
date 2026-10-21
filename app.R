@@ -161,6 +161,13 @@ sidebar <- sidebar(
       uiOutput('upload_ui')
     ),
     uiOutput('fastq_folder_ui'),
+    conditionalPanel(
+      condition = "input.barcoded && input.custom_barcoding",
+      div(style="margin-bottom:10px"),
+      button_help(actionButton('run_context', 'Run utag context', class = 'btn-outline-primary'),
+        'Scan a sample of the reads (utag context, ~20,000 reads) to find which sequence sits before the utags and which context (-c) / ONT barcode to use. Uses the selected folder, primers and sample sheet. The output is shown in the terminal view; when done, a button opens the report.'),
+      uiOutput('context_report_ui')
+    ),
     tags$hr(),
     checkboxInput('report',
       with_help('Generate html report', 'Run faster-report on the processed reads and make an html report available here.'),
@@ -305,8 +312,13 @@ server <- function(input, output, session) {
     is_running      = FALSE,  # TRUE while process is alive
     show_log        = FALSE,  # TRUE once a run has started (stays TRUE after completion)
     report_requested = FALSE,
-    outdir          = NULL    # where results are written
+    outdir          = NULL,   # where results are written
+    ctx_log         = NULL,   # utag context output, shown in the terminal view
+    ctx_running     = FALSE,
+    ctx_cmd         = NULL,   # utag context command line, shown above its output
+    ctx_hash        = NULL    # www/ copy of the context report
   )
+  ctx_proc <- NULL            # processx handle of the running utag context
   
   # --- Counters used to force fresh fileInput/shinyDirButton widgets on reset ---
   # (fileInput and shinyDirButton can't be reset via shinyjs::reset; re-rendering
@@ -425,15 +437,17 @@ server <- function(input, output, session) {
   fastq_folder_val <- reactive({ input[[paste0('fastq_folder_', dir_id())]] })
   
   # --- Poll log file every 500ms (active whether running or just showing final output) ---
+  # main run log, or utag context output when no run log is shown
+  current_log <- function() if (isTRUE(rv$show_log)) rv$log_file else rv$ctx_log
   poll_log_content <- reactivePoll(
     500, session,
     checkFunc = function() {
-      lf <- rv$log_file
+      lf <- current_log()
       if (is.null(lf) || !file.exists(lf)) return(0)
       file.info(lf)$size
     },
     valueFunc = function() {
-      lf <- rv$log_file
+      lf <- current_log()
       if (is.null(lf) || !file.exists(lf)) return("")
       paste(readLines(lf, warn = FALSE), collapse = "\n")
     }
@@ -516,6 +530,9 @@ server <- function(input, output, session) {
   output$stdout <- renderPrint({
     if (rv$show_log) {
       cat(poll_log_content())
+    } else if (!is.null(rv$ctx_log)) {
+      cat('utag context:\n', rv$ctx_cmd, '\n-------\n\n')
+      cat(poll_log_content())
     } else {
       # Command preview mode
       folder <- selected_folder_path()
@@ -587,6 +604,7 @@ server <- function(input, output, session) {
   # --- Observers ---
   # Validate selected folder name
   observeEvent(list(fastq_folder_val(), is_utag()), {
+    if (!isTRUE(rv$ctx_running)) rv$ctx_log <- NULL
     fv <- fastq_folder_val()
     if (!is.null(fv) && !is.integer(fv)) {
       path <- parseDirPath(volumes, fv)
@@ -625,6 +643,7 @@ server <- function(input, output, session) {
     # Remove this user's previous run (tmp/ files, www/ copies) and its report buttons
     clear_user_run(user_state_file())
     output$download_report <- renderUI(NULL)
+    rv$ctx_log <- NULL
     
     # Files inside app_tmp_dir (survives R restarts)
     run_id      <- digest::digest(Sys.time(), algo = 'crc32')
@@ -689,6 +708,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$reset, {
+    clear_context()
     # 1-3. Kill this user's process if still running, remove its tmp/ and www/ files and state
     clear_user_run(user_state_file())
     output$download_report <- renderUI(NULL)
@@ -732,6 +752,97 @@ server <- function(input, output, session) {
     notify_success('Process killed and cleaned up.', position = 'center-bottom')
   })
   
+  # --- utag context: find the sequence before the utags, then show its report ---
+  ctx_files <- reactive({
+    req(res_auth$user)
+    base <- file.path(app_tmp_dir, paste0("context_", res_auth$user))
+    list(log = paste0(base, ".log"), html = paste0(base, ".html"))
+  })
+
+  # kill a running context scan, remove its files and www/ copy
+  clear_context <- function() {
+    if (!is.null(ctx_proc) && ctx_proc$is_alive()) ctx_proc$kill_tree()
+    ctx_proc <<- NULL
+    f <- isolate(ctx_files())
+    unlink(c(f$log, f$html, if (!is.null(isolate(rv$ctx_hash))) file.path('www', isolate(rv$ctx_hash))))
+    rv$ctx_hash <- NULL
+    rv$ctx_log <- NULL
+    if (isTRUE(isolate(rv$ctx_running)) && !isTRUE(isolate(rv$is_running))) hide_spinner()
+    rv$ctx_running <- FALSE
+    shinyjs::enable('run_context')
+    shinyjs::html(id = 'run_context', 'Run utag context')
+  }
+
+  output$context_report_ui <- renderUI({
+    req(rv$ctx_hash)
+    tagList(
+      div(style="margin-bottom:10px"),
+      actionButton('view_context', 'View context report',
+        onclick = sprintf("window.open('%s', '_blank')", rv$ctx_hash))
+    )
+  })
+
+  observeEvent(input$run_context, {
+    folder <- selected_folder_path()
+    if (is.null(folder)) {
+      notify_failure('Please select a fastq folder first!', position = 'center-bottom')
+      return()
+    }
+    if (!bin_on_path('utag')) {
+      notify_failure('utag not found on PATH', position = 'center-bottom')
+      return()
+    }
+    clear_context()
+    f <- ctx_files()
+
+    args <- c('context', '--color', 'never', '-r', folder, '--html', f$html)
+    sheet <- sample_sheet_val()
+    if (!is.null(sheet) && nzchar(sheet))
+      args <- c(args, '--samplesheet', sheet)
+    if (nzchar(trimws(input$bc_primer_f)))
+      args <- c(args, '--primer-f', toupper(trimws(input$bc_primer_f)))
+    if (nzchar(trimws(input$bc_primer_r)))
+      args <- c(args, '--primer-r', toupper(trimws(input$bc_primer_r)))
+
+    rv$ctx_cmd <- paste('utag', paste(args, collapse = ' '))
+    # CLICOLOR_FORCE (set by RStudio) would put ANSI codes into the output
+    ctx_proc <<- processx::process$new(
+      'utag', args, stdout = f$log, stderr = '2>&1',
+      env = c('current', CLICOLOR_FORCE = '0', FORCE_COLOR = '0', NO_COLOR = '1'),
+      cleanup_tree = TRUE
+    )
+    rv$ctx_log <- f$log
+    rv$ctx_running <- TRUE
+    shinyjs::disable('run_context')
+    shinyjs::html(id = 'run_context', 'Please wait...')
+    show_spinner()
+  })
+
+  # poll the context scan; on success copy the report to www/ and show it
+  observe({
+    req(rv$ctx_running)
+    invalidateLater(1000, session)
+    if (is.null(ctx_proc) || ctx_proc$is_alive()) return()
+    status <- ctx_proc$get_exit_status()
+    ctx_proc <<- NULL
+    isolate({
+      rv$ctx_running <- FALSE
+      shinyjs::enable('run_context')
+      shinyjs::html(id = 'run_context', 'Run utag context')
+      if (!isTRUE(rv$is_running)) hide_spinner()
+      hash <- if (identical(status, 0L)) publish_html(ctx_files()$html, 'utag-context')
+      if (!is.null(hash)) {
+        rv$ctx_hash <- hash
+        notify_success('utag context finished, report is available.', position = 'center-bottom')
+      } else {
+        notify_failure('utag context failed, see the terminal view', position = 'center-bottom')
+      }
+    })
+  })
+  session$onSessionEnded(function() {
+    if (!is.null(ctx_proc) && ctx_proc$is_alive()) ctx_proc$kill_tree()
+  })
+
   # Samplesheet preview
   output$samplesheet <- renderReactable({
     req(samplesheet(), input$barcoded)
@@ -761,7 +872,7 @@ server <- function(input, output, session) {
 }
 
 cleanup <- function() {
-  rmfiles <- list.files(path = "www", pattern = "^(faster-report|utag-plates)-.*\\.html$", full.names = T)
+  rmfiles <- list.files(path = "www", pattern = "^(faster-report|utag-plates|utag-context)-.*\\.html$", full.names = T)
   lapply(rmfiles, file.remove)
 }
 onStop(function() { cleanup() })
