@@ -1,0 +1,245 @@
+/* ont-process-app - light, flat look (after nxf-tgs-app) */
+:root {
+    --app-primary: #196F3D;
+    --app-primary-dark: #145A32;
+    --app-primary-light: #E9F5EE;
+    --app-border: #E5E7EB;
+    --app-border-strong: #D1D5DB;
+    --app-text: #111827;
+    --app-text-dim: #4B5563;
+    --app-bg: #F9FAFB;
+    --bs-border-radius: 6px;
+    --bs-border-radius-sm: 4px;
+    --bs-border-radius-lg: 8px;
+}
+
+body {
+    font-size: 0.9rem;
+    background-color: var(--app-bg);
+    color: var(--app-text);
+}
+
+/* Navbar */
+.navbar {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid var(--app-border) !important;
+}
+.navbar-brand {
+    color: var(--app-primary) !important;
+    font-weight: 600;
+}
+
+/* Sidebar */
+.bslib-sidebar-layout > .sidebar {
+    background-color: #ffffff !important;
+    border-right: 1px solid var(--app-border) !important;
+}
+.bslib-sidebar-layout > .sidebar .sidebar-title {
+    font-size: 0.75rem !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--app-text-dim);
+}
+.sidebar label,
+.sidebar .control-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #374151;
+}
+.sidebar .shiny-input-container {
+    margin-bottom: 0.6rem;
+}
+.sidebar hr {
+    border-color: var(--app-border);
+    opacity: 1;
+}
+
+/* Cards */
+.card {
+    background-color: #ffffff;
+    border: 1px solid var(--app-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+}
+/* bslib card_title() renders a plain <h5> */
+.card h5 {
+    font-size: 0.95rem !important;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+/* Sticky command bar on top of the main panel */
+.command-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+}
+.command-bar .bar-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.command-bar .bar-spacer {
+    flex: 1 1 auto;
+}
+.command-bar .bar-divider {
+    width: 1px;
+    align-self: stretch;
+    background-color: var(--app-border);
+    margin: 0 4px;
+}
+
+/* Buttons */
+.btn {
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    border-radius: 6px;
+    padding: 0.35rem 0.8rem;
+    background-color: #ffffff;
+    color: #374151;
+    border: 1px solid var(--app-border-strong);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.btn:hover {
+    background-color: #F3F4F6;
+    border-color: #9CA3AF;
+    color: var(--app-text);
+}
+.btn .fa, .btn .fas, .btn svg {
+    margin-right: 4px;
+}
+.btn-primary {
+    background-color: var(--app-primary);
+    border-color: var(--app-primary);
+    color: #ffffff;
+}
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--app-primary-dark);
+    border-color: var(--app-primary-dark);
+    color: #ffffff;
+}
+.btn-danger {
+    background-color: #ffffff;
+    border-color: #FCA5A5;
+    color: #B91C1C;
+}
+.btn-danger:hover {
+    background-color: #FEF2F2;
+    border-color: #F87171;
+    color: #991B1B;
+}
+.btn:disabled, .btn.disabled {
+    opacity: 0.55;
+}
+.btn-report {
+    border-color: #A9DFBF;
+    color: var(--app-primary);
+    background-color: var(--app-primary-light);
+}
+.btn-report:hover {
+    background-color: #D4EFDF;
+    border-color: var(--app-primary);
+    color: var(--app-primary-dark);
+}
+
+/* shinyFiles / file input selected state */
+.btn-selected-ok, .btn-selected-ok:hover, .btn-selected-ok:focus {
+    background-color: #D4EFDF !important;
+    border-color: #A9DFBF !important;
+    color: #1E6B3A !important;
+}
+.sidebar .btn-file {
+    background-color: #ffffff;
+}
+
+/* Form controls */
+.form-control,
+.form-select,
+.selectize-input {
+    font-size: 0.85rem;
+    border-radius: 6px !important;
+    border: 1px solid var(--app-border-strong) !important;
+    box-shadow: none !important;
+}
+.form-control:focus,
+.form-select:focus,
+.selectize-input.focus {
+    border-color: var(--app-primary) !important;
+    box-shadow: 0 0 0 3px rgba(25, 111, 61, 0.12) !important;
+}
+.form-check-input:checked {
+    background-color: var(--app-primary);
+    border-color: var(--app-primary);
+}
+.form-check-input:focus {
+    box-shadow: 0 0 0 3px rgba(25, 111, 61, 0.12);
+    border-color: var(--app-primary);
+}
+.progress-bar {
+    background-color: var(--app-primary);
+}
+
+/* Terminal view */
+#stdout {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    background-color: #111827;
+    color: #E5E7EB;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0;
+    min-height: 100%;
+}
+
+/* main panel: less padding, so the cards get more height */
+.bslib-page-navbar .bslib-sidebar-layout > .main {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    gap: 0.75rem;
+}
+
+/* Drag bar between the panels */
+#dragbar:hover {
+    color: var(--app-primary) !important;
+}
+
+/* shinyFiles folder chooser: fit the window, scroll the body, keep Select/Cancel visible */
+.sF-modal.modal-dialog {
+    margin: 1.5rem auto !important;
+}
+.sF-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 3rem) !important;
+}
+.sF-modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+.sF-modal .modal-header,
+.sF-modal .modal-footer {
+    flex: 0 0 auto;
+}
+.sF-fileWindow {
+    height: min(45vh, 420px) !important;
+}

@@ -105,22 +105,20 @@ with_help <- function(label, text, placement = 'right') {
 }
 
 # hover help on a button (wrapped, so the tooltip also shows while the button is disabled)
-button_help <- function(button, text, placement = 'right') {
-  tooltip(tags$div(style = 'display:block;', button), text, placement = placement)
+button_help <- function(button, text, placement = 'right', inline = FALSE) {
+  tooltip(tags$div(style = if (inline) 'display:inline-block;' else 'display:block;', button), text, placement = placement)
 }
 
 # buttons opening the html outputs copied to www/ (NULL hashes are skipped)
 report_buttons <- function(report_hash = NULL, summary_hash = NULL) {
-  open_btn <- function(id, label, hash) {
+  open_btn <- function(id, label, hash, icon_name) {
     if (is.null(hash)) return(NULL)
-    tagList(
-      actionButton(id, label, onclick = sprintf("window.open('%s', '_blank')", hash)),
-      div(style = "margin-bottom:10px")
-    )
+    actionButton(id, label, icon = icon(icon_name), class = 'btn-report',
+                 onclick = sprintf("window.open('%s', '_blank')", hash))
   }
-  tagList(
-    open_btn('view_report', 'View HTML report', report_hash),
-    open_btn('view_summary', 'View utag summary', summary_hash)
+  div(class = 'bar-group',
+    open_btn('view_report', 'View reads report', report_hash, 'file-lines'),
+    open_btn('view_summary', 'View utag report', summary_hash, 'table-cells')
   )
 }
 
@@ -161,13 +159,6 @@ sidebar <- sidebar(
       uiOutput('upload_ui')
     ),
     uiOutput('fastq_folder_ui'),
-    conditionalPanel(
-      condition = "input.barcoded && input.custom_barcoding",
-      div(style="margin-bottom:10px"),
-      button_help(actionButton('run_context', 'Run utag context', class = 'btn-outline-primary'),
-        'Scan a sample of the reads (utag context, ~20,000 reads) to find which sequence sits before the utags and which context (-c) / ONT barcode to use. Uses the selected folder, primers and sample sheet. The output is shown in the terminal view; when done, a button opens the report.'),
-      uiOutput('context_report_ui')
-    ),
     tags$hr(),
     checkboxInput('report',
       with_help('Generate html report', 'Run faster-report on the processed reads and make an html report available here.'),
@@ -176,21 +167,32 @@ sidebar <- sidebar(
       condition = "input.report",
       numericInput('subsample',
         with_help('Subsample reads for report', 'Fraction of reads (0.1-1.0) used for the html report. Lower is faster.'),
-        value = 0.1, min = 0.1, max = 1.0, step = 0.1),
-      div(style="margin-bottom:10px")
+        value = 0.1, min = 0.1, max = 1.0, step = 0.1)
+    )
+  )
+)
+
+# command buttons, sticky on top of the main panel
+command_bar <- div(
+  class = 'command-bar',
+  div(class = 'bar-group',
+    button_help(actionButton('start', 'Start processing', icon = icon('play'), class = 'btn-primary'),
+      'Start the run in the background with the command shown in the terminal view. It keeps running if you close the browser.',
+      placement = 'bottom', inline = TRUE),
+    conditionalPanel(
+      condition = "input.barcoded && input.custom_barcoding",
+      button_help(actionButton('run_context', 'Run utag context', icon = icon('magnifying-glass')),
+        'Scan a sample of the reads (utag context, ~20,000 reads) to find which sequence sits before the utags and which context (-c) / ONT barcode to use. Uses the selected folder, primers and sample sheet. The output is shown in the terminal view; when done, a button opens the report.',
+        placement = 'bottom', inline = TRUE)
     ),
-    
-    #uiOutput('usedocker'),
-    button_help(actionButton('start', 'Start processing'),
-      'Start the run in the background with the command shown in the terminal view. It keeps running if you close the browser.'),
-    div(style="margin-bottom:10px"),
-    button_help(actionButton('reset', 'Reset inputs', class = 'btn-warning'),
-      'Kill any running process, clear the inputs and remove the logs.'),
-    div(style="margin-bottom:10px"),
-    uiOutput('download_report')
+    button_help(actionButton('reset', 'Reset inputs', icon = icon('rotate-right')),
+      'Kill any running process, clear the inputs and remove the logs.',
+      placement = 'bottom', inline = TRUE),
+    shinyjs::hidden(actionButton('kill', 'Kill process', icon = icon('xmark'), class = 'btn-danger'))
   ),
-  div(style="margin-bottom:10px"),
-  shinyjs::hidden(actionButton('kill', 'Kill process', class = 'btn-danger', style = 'width:100%'))
+  div(class = 'bar-spacer'),
+  uiOutput('context_report_ui', inline = TRUE),
+  uiOutput('download_report', inline = TRUE)
 )
 
 cards <- list(
@@ -217,8 +219,9 @@ cards <- list(
         "Preview of the terminal, for viewing the selected parameters and monitor output",
         placement = "right")
     ),
+    # fills the card below the title; scrolls itself (auto-scroll targets this div)
     div(
-      style = "height: 100%; overflow: auto;",
+      style = "flex: 1 1 auto; min-height: 0; overflow: auto;",
       verbatimTextOutput('stdout')
     )
   )
@@ -228,24 +231,25 @@ ui <- page_navbar(
   useShinyjs(),
   fillable = T,
   title = 'ONT process run app',
-  theme = bs_theme(bootswatch = 'yeti', primary = '#196F3D'),
-  tags$head(tags$style(HTML("
-    .btn-selected-ok, .btn-selected-ok:hover, .btn-selected-ok:focus {
-      background-color: #d4efdf !important;
-      border-color: #a9dfbf !important;
-      color: #1e6b3a !important;
-    }
-  "))),
+  # Inter is linked from Google Fonts by the browser (local = FALSE: nothing downloaded on the server)
+  theme = bs_theme(
+    version = 5, primary = '#196F3D',
+    base_font = font_google('Inter', local = FALSE),
+    heading_font = font_google('Inter', local = FALSE),
+    'font-size-base' = '0.9rem'
+  ),
+  tags$head(tags$link(rel = 'stylesheet', type = 'text/css', href = 'style.css')),
   sidebar = sidebar,
   nav_panel(
     use_busy_spinner(spin = "double-bounce", position = 'top-right', color = '#E67E22'),
     title = '',
     fillable = TRUE,
+    command_bar,
     div(
-      style = "display: flex; height: 100%; min-height: 0;",
+      style = "display: flex; flex: 1 1 auto; min-height: 0;",
       div(
         id = "leftPanel",
-        style = "overflow: auto; width: calc(50% - 8px); flex: 0 0 calc(50% - 8px); min-width: 20%; max-width: 80%; display: flex; flex-direction: column;",
+        style = "overflow: auto; width: calc((100% - 16px) / 3); flex: 0 0 calc((100% - 16px) / 3); min-width: 20%; max-width: 80%; display: flex; flex-direction: column;",
         card1
       ),
       div(
@@ -326,6 +330,21 @@ server <- function(input, output, session) {
   upload_id <- reactiveVal(0)
   dir_id    <- reactiveVal(0)
   
+  # --- Lock inputs and command buttons while a run is going (they are in different containers) ---
+  lock_ui <- function() {
+    shinyjs::disable('controls')
+    for (id in c('start', 'reset', 'run_context')) shinyjs::disable(id)
+    shinyjs::show('kill')
+    shinyjs::html(id = 'start', 'Please wait...')
+  }
+  unlock_ui <- function() {
+    shinyjs::enable('controls')
+    for (id in c('start', 'reset')) shinyjs::enable(id)
+    if (!isTRUE(isolate(rv$ctx_running))) shinyjs::enable('run_context')
+    shinyjs::hide('kill')
+    shinyjs::html(id = 'start', as.character(tagList(icon('play'), 'Start processing')))
+  }
+
   # --- Per-user state file (persists across reconnects) ---
   user_state_file <- reactive({
     req(res_auth$user)
@@ -380,9 +399,7 @@ server <- function(input, output, session) {
         rv$selected_folder <- state$selected_folder
         rv$outdir          <- state$outdir
         
-        shinyjs::disable('controls')
-        shinyjs::show('kill')
-        shinyjs::html(id = 'start', 'Please wait...')
+        lock_ui()
         show_spinner()
         notify_success('Reconnected to running process', position = 'center-bottom')
       }
@@ -550,11 +567,12 @@ server <- function(input, output, session) {
     }
   })
   
-  # --- Auto-scroll terminal while running ---
+  # --- Auto-scroll terminal while a run or utag context is going ---
   observe({
-    req(rv$is_running)
+    req(rv$is_running || rv$ctx_running)
     poll_log_content()  # take dependency so this fires on new log content
-    runjs("var el = document.getElementById('stdout'); if(el) el.parentElement.scrollTo({ top: 1e9, behavior: 'smooth' });")
+    # delayed: the new output is rendered after this message arrives
+    runjs("setTimeout(function() { var el = document.getElementById('stdout'); if(el) el.parentElement.scrollTo({ top: 1e9, behavior: 'smooth' }); }, 150);")
   })
   
   # --- Detect process completion by polling the status file ---
@@ -570,9 +588,7 @@ server <- function(input, output, session) {
     
     isolate({
       rv$is_running <- FALSE
-      shinyjs::enable('controls')
-      shinyjs::hide('kill')
-      shinyjs::html(id = 'start', 'Start processing')
+      unlock_ui()
       hide_spinner()
       
       state_f <- user_state_file()
@@ -701,9 +717,7 @@ server <- function(input, output, session) {
     ), sf)
     
     # Update UI
-    shinyjs::disable('controls')
-    shinyjs::show('kill')
-    shinyjs::html(id = 'start', 'Please wait...')
+    lock_ui()
     show_spinner()
   })
   
@@ -729,9 +743,7 @@ server <- function(input, output, session) {
     rv$outdir <- NULL
     
     # Reset UI elements
-    shinyjs::enable('controls')
-    shinyjs::hide('kill')
-    shinyjs::html(id = 'start', 'Start processing')
+    unlock_ui()
     shinyjs::disable('start')
     shinyjs::runjs("$('#fastq_folder_ui button').removeClass('btn-selected-ok');")
     shinyjs::runjs("$('#upload_ui .btn-file').removeClass('btn-selected-ok');")
@@ -745,9 +757,7 @@ server <- function(input, output, session) {
     
     # 4. Update UI manually without reloading
     rv$is_running <- FALSE
-    shinyjs::enable('controls')
-    shinyjs::html(id = 'start', 'Start processing')
-    shinyjs::hide('kill')
+    unlock_ui()
     hide_spinner()
     notify_success('Process killed and cleaned up.', position = 'center-bottom')
   })
@@ -770,16 +780,13 @@ server <- function(input, output, session) {
     if (isTRUE(isolate(rv$ctx_running)) && !isTRUE(isolate(rv$is_running))) hide_spinner()
     rv$ctx_running <- FALSE
     shinyjs::enable('run_context')
-    shinyjs::html(id = 'run_context', 'Run utag context')
+    shinyjs::html(id = 'run_context', as.character(tagList(icon('magnifying-glass'), 'Run utag context')))
   }
 
   output$context_report_ui <- renderUI({
     req(rv$ctx_hash)
-    tagList(
-      div(style="margin-bottom:10px"),
-      actionButton('view_context', 'View context report',
-        onclick = sprintf("window.open('%s', '_blank')", rv$ctx_hash))
-    )
+    actionButton('view_context', 'View context report', icon = icon('magnifying-glass-chart'), class = 'btn-report',
+      onclick = sprintf("window.open('%s', '_blank')", rv$ctx_hash))
   })
 
   observeEvent(input$run_context, {
@@ -828,7 +835,7 @@ server <- function(input, output, session) {
     isolate({
       rv$ctx_running <- FALSE
       shinyjs::enable('run_context')
-      shinyjs::html(id = 'run_context', 'Run utag context')
+      shinyjs::html(id = 'run_context', as.character(tagList(icon('magnifying-glass'), 'Run utag context')))
       if (!isTRUE(rv$is_running)) hide_spinner()
       hash <- if (identical(status, 0L)) publish_html(ctx_files()$html, 'utag-context')
       if (!is.null(hash)) {
