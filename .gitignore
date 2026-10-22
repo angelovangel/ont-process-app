@@ -10,5 +10,5 @@ testdata
 credentials.rds
 tmp*
 .claude
-www/utag-plates*
+www/utag-summary*
 www/utag-context*

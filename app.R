@@ -78,7 +78,7 @@ clear_user_run <- function(state_f) {
   if (!file.exists(state_f)) return(invisible())
   state <- tryCatch(readRDS(state_f), error = function(e) list())
   if (pid_is_run(state$pid, state$log_file)) kill_process_tree(state$pid)
-  hashes <- c(state$report_hash, state$plates_hash)
+  hashes <- c(state$report_hash, state$summary_hash)
   www_files <- if (length(hashes)) file.path('www', hashes)
   unlink(c(run_files(state$log_file), www_files))
   file.remove(state_f)
@@ -110,7 +110,7 @@ button_help <- function(button, text, placement = 'right') {
 }
 
 # buttons opening the html outputs copied to www/ (NULL hashes are skipped)
-report_buttons <- function(report_hash = NULL, plates_hash = NULL) {
+report_buttons <- function(report_hash = NULL, summary_hash = NULL) {
   open_btn <- function(id, label, hash) {
     if (is.null(hash)) return(NULL)
     tagList(
@@ -120,7 +120,7 @@ report_buttons <- function(report_hash = NULL, plates_hash = NULL) {
   }
   tagList(
     open_btn('view_report', 'View HTML report', report_hash),
-    open_btn('view_plates', 'View plate heatmap', plates_hash)
+    open_btn('view_summary', 'View utag summary', summary_hash)
   )
 }
 
@@ -135,7 +135,7 @@ sidebar <- sidebar(
     conditionalPanel(
       condition = "input.barcoded",
       checkboxInput('custom_barcoding',
-        with_help('utag demux (custom CDI/UDI)', 'Demultiplex custom utag amplicon libraries with ont-process-utag.sh (utag demux) instead of ont-process-run.sh. The utag pair (or a single utag with --single-end) identifies the sample. Select a fastq folder, e.g. fastq_pass/barcode01. Output is laid out like ont-process-run.sh, plus utag/ and a plate heatmap.'),
+        with_help('utag demux (custom CDI/UDI)', 'Demultiplex custom utag amplicon libraries with ont-process-utag.sh (utag demux) instead of ont-process-run.sh. The utag pair (or a single utag with --single-end) identifies the sample. Select a fastq folder, e.g. fastq_pass/barcode01. Output is laid out like ont-process-run.sh, plus utag/ and a run summary report (read fate, patterns, plate heatmap).'),
         value = FALSE),
       conditionalPanel(
         condition = "input.barcoded && input.custom_barcoding",
@@ -354,12 +354,12 @@ server <- function(input, output, session) {
         missing_www <- function(hash) is.null(hash) || !file.exists(file.path('www', hash))
         if (isTRUE(state$report) && missing_www(state$report_hash))
           state$report_hash <- publish_html(file.path(state$outdir, 'faster-report.html'), 'faster-report')
-        if (missing_www(state$plates_hash))
-          state$plates_hash <- publish_html(file.path(state$outdir, 'plates.html'), 'utag-plates')
+        if (missing_www(state$summary_hash))
+          state$summary_hash <- publish_html(file.path(state$outdir, 'run_summary.html'), 'utag-summary')
         saveRDS(state, sf)
-        if (length(c(state$report_hash, state$plates_hash))) {
+        if (length(c(state$report_hash, state$summary_hash))) {
           rh <- state$report_hash
-          ph <- state$plates_hash
+          ph <- state$summary_hash
           output$download_report <- renderUI({ report_buttons(rh, ph) })
           notify_success('Previous run completed. Report is available.', position = 'center-bottom')
         }
@@ -586,9 +586,9 @@ server <- function(input, output, session) {
         
         if (isTRUE(rv$report_requested))
           state$report_hash <- publish_html(file.path(rv$outdir, 'faster-report.html'), 'faster-report')
-        state$plates_hash <- publish_html(file.path(rv$outdir, 'plates.html'), 'utag-plates')
+        state$summary_hash <- publish_html(file.path(rv$outdir, 'run_summary.html'), 'utag-summary')
         rh <- state$report_hash
-        ph <- state$plates_hash
+        ph <- state$summary_hash
         output$download_report <- renderUI({ report_buttons(rh, ph) })
         state$status <- "finished"
         saveRDS(state, state_f)
@@ -872,7 +872,7 @@ server <- function(input, output, session) {
 }
 
 cleanup <- function() {
-  rmfiles <- list.files(path = "www", pattern = "^(faster-report|utag-plates|utag-context)-.*\\.html$", full.names = T)
+  rmfiles <- list.files(path = "www", pattern = "^(faster-report|utag-summary|utag-context)-.*\\.html$", full.names = T)
   lapply(rmfiles, file.remove)
 }
 onStop(function() { cleanup() })
