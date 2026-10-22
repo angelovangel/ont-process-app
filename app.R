@@ -66,8 +66,9 @@ pid_is_run <- function(pid, log_file) {
 }
 
 # copy an html output to www/ under a random name so it can be opened from the app
+# (path can be character(0) when the state has no outdir, e.g. a state saved by an older version)
 publish_html <- function(path, prefix) {
-  if (is.null(path) || !file.exists(path)) return(NULL)
+  if (length(path) != 1 || is.na(path) || !file.exists(path)) return(NULL)
   hash <- sprintf("%s-%s.html", prefix, digest::digest(runif(1), algo = 'crc32'))
   file.copy(path, file.path('www', hash), overwrite = TRUE)
   hash
@@ -362,6 +363,7 @@ server <- function(input, output, session) {
     # Case 1: process already finished while we were disconnected
     if (!is.null(state$status_file) && file.exists(state$status_file)) {
       status <- trimws(readLines(state$status_file, warn = FALSE)[1])
+      if (is.na(status)) status <- ""   # empty status file
       # Show the final log
       if (!is.null(state$log_file) && file.exists(state$log_file)) {
         rv$log_file  <- state$log_file
@@ -585,6 +587,7 @@ server <- function(input, output, session) {
     
     # Status file appeared — process has exited
     status <- trimws(readLines(sf, warn = FALSE)[1])
+    if (is.na(status)) status <- ""   # empty status file
     
     isolate({
       rv$is_running <- FALSE
