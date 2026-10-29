@@ -1,6 +1,16 @@
 # helper functions for 
 # ont-process-app
 
+# sequencing kits offered for 'dorado trim --sequencing-kit' (ont-process-run.sh -t)
+trim_kits <- c(
+  'SQK-NBD114-24', 'SQK-NBD114-96',
+  'SQK-RBK114-24', 'SQK-RBK114-96',
+  'SQK-16S114-24', 'SQK-RPB114-24', 'SQK-PCB114-24',
+  'SQK-MAB114-24',
+  'SQK-LSK114', 'SQK-RAD114', 'SQK-ULK114',
+  'SQK-NBD111-24', 'SQK-NBD111-96', 'SQK-RBK004'
+)
+
 
 # takes in samplesheet csv or xlsx, returns a list with
 # a --> logical, TRUE if all checks pass

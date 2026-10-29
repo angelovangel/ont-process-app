@@ -161,6 +161,18 @@ sidebar <- sidebar(
     ),
     uiOutput('fastq_folder_ui'),
     tags$hr(),
+    conditionalPanel(
+      condition = "!(input.barcoded && input.custom_barcoding)",
+      checkboxInput('trim',
+        with_help('Trim adapters/barcodes (-t)', 'Trim adapters, primers and barcodes from the merged reads with dorado trim. Select the sequencing kit used for the library.'),
+        value = FALSE),
+      conditionalPanel(
+        condition = "input.trim",
+        selectInput('trim_kit',
+          with_help('Sequencing kit', 'Kit name passed to dorado trim --sequencing-kit; needed for barcode trimming.'),
+          choices = trim_kits, selected = 'SQK-NBD114-24')
+      )
+    ),
     checkboxInput('report',
       with_help('Generate html report', 'Run faster-report on the processed reads and make an html report available here.'),
       value = T),
@@ -540,7 +552,8 @@ server <- function(input, output, session) {
       htmlreport <- ifelse(isTRUE(input$report), '-r', '')
       subsample <- if(isTRUE(input$report) && !is.null(input$subsample)) c('-s', input$subsample) else ''
       barcoded   <- ifelse(isTRUE(input$barcoded), '', '-n')
-      args <- c('-p', folder, '-c', sheet, htmlreport, subsample, barcoded)
+      trim       <- if (isTRUE(input$trim) && nzchar(input$trim_kit)) c('-t', input$trim_kit) else ''
+      args <- c('-p', folder, '-c', sheet, htmlreport, subsample, barcoded, trim)
       args[args != ""]
     }
   })
