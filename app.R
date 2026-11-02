@@ -150,6 +150,9 @@ sidebar <- sidebar(
         checkboxInput('bc_single_end',
           with_help('Single-end (--single-end)', 'One utag at the read start (fwd or rev) names the sample: unique dual indexes, e.g. MAB. The far read end is not used.'),
           value = FALSE),
+        selectInput('bc_tag_design',
+          with_help('Tag design (--plates)', 'Plate map of the utag oligos; utag picks the matching tag sequences. CDI 10 bp: current CDI plates (utag default). CDI 9 bp: older CDI plates with 9 nt utags. MAB UDI: unique dual indexes of the SQK-MAB114 kit.'),
+          choices = names(tag_designs), selected = 'CDI 10 bp'),
         selectInput('bc_primer_set',
           with_help('Primers (--primer-f/-r)', 'Prefills the primer fields below. 16S: 27F/1492R (utag default). ITS: ITS1F/ITS4. 18S: EukA/EukB. COI: LCO1490/HCO2198. other: paste your own sequences.'),
           choices = names(primer_sets), selected = '16S'),
@@ -444,6 +447,12 @@ server <- function(input, output, session) {
       if (nzchar(r)) c('--primer-r', r))
   }
 
+  # --plates from the tag design (utag picks the matching --tags)
+  plates_args <- function() {
+    plates <- tag_designs[[input$bc_tag_design]]
+    if (nzchar(plates)) c('--plates', plates)
+  }
+
   
   # render sample name input if nonbc run
   output$nonbc_sample_name <- renderUI({
@@ -555,7 +564,7 @@ server <- function(input, output, session) {
         args <- c(args, '-c', sheet)
       if (isTRUE(input$report))
         args <- c(args, '-r', if (!is.null(input$subsample)) c('-s', input$subsample))
-      args <- c(args, '--', '-c', input$bc_context)
+      args <- c(args, '--', '-c', input$bc_context, plates_args())
       if (input$bc_context == 'nbd' && nzchar(trimws(input$bc_ont_barcode)))
         args <- c(args, '--ont-barcode', toupper(trimws(input$bc_ont_barcode)))
       if (isTRUE(input$bc_single_end))
@@ -836,7 +845,7 @@ server <- function(input, output, session) {
     sheet <- sample_sheet_val()
     if (!is.null(sheet) && nzchar(sheet))
       args <- c(args, '--samplesheet', sheet)
-    args <- c(args, primer_args())
+    args <- c(args, plates_args(), primer_args())
 
     rv$ctx_cmd <- paste('utag', paste(args, collapse = ' '))
     # CLICOLOR_FORCE (set by RStudio) would put ANSI codes into the output

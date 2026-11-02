@@ -21,6 +21,14 @@ primer_sets <- list(
   'other' = c(f = '', r = '')
 )
 
+# utag plate designs (--plates short names, files in utag's data/); '' = utag default (CDI 10 bp)
+# utag picks the matching --tags itself (9 bp tags for the 9 bp plate map)
+tag_designs <- c(
+  'CDI 10 bp' = '',
+  'CDI 9 bp'  = '9bp',
+  'MAB UDI'   = 'mab'
+)
+
 
 # takes in samplesheet csv or xlsx, returns a list with
 # a --> logical, TRUE if all checks pass
