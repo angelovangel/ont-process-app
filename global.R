@@ -11,6 +11,16 @@ trim_kits <- c(
   'SQK-NBD111-24', 'SQK-NBD111-96', 'SQK-RBK004'
 )
 
+# primer presets for utag (--primer-f / --primer-r), 5'->3'
+# selecting a set prefills the primer fields; other: sequences typed in by the user
+primer_sets <- list(
+  '16S' = c(f = 'AGRGTTYGATYMTGGCTCAG', r = 'RGYTACCTTGTTACGACTT'),        # 27F / 1492R (utag default)
+  'ITS' = c(f = 'TCCGTAGGTGAACCTGCGG', r = 'TCCTCCGCTTATTGATATGC'),         # ITS1F / ITS4 from MAB kit
+  '18S' = c(f = 'AACCTGGTTGATCCTGCCAGT', r = 'TGATCCTTCTGCAGGTTCACCTAC'),      # EukA / EukB
+  'COI' = c(f = 'KBTCHACAAAYCAYAARGAYATHGG', r = 'TAAACYTCWGGRTGWCCRAARAAYCA'), # LoboF1 / LoboR1
+  'other' = c(f = '', r = '')
+)
+
 
 # takes in samplesheet csv or xlsx, returns a list with
 # a --> logical, TRUE if all checks pass

@@ -150,12 +150,15 @@ sidebar <- sidebar(
         checkboxInput('bc_single_end',
           with_help('Single-end (--single-end)', 'One utag at the read start (fwd or rev) names the sample: unique dual indexes, e.g. MAB. The far read end is not used.'),
           value = FALSE),
+        selectInput('bc_primer_set',
+          with_help('Primers (--primer-f/-r)', 'Prefills the primer fields below. 16S: 27F/1492R (utag default). ITS: ITS1F/ITS4. 18S: EukA/EukB. COI: LCO1490/HCO2198. other: paste your own sequences.'),
+          choices = names(primer_sets), selected = '16S'),
         textInput('bc_primer_f',
-          with_help('Forward primer (--primer-f)', 'Optional, 5\'->3\'. Leave empty for the default 16S 27F (AGRGTTYGATYMTGGCTCAG).'),
-          value = '', placeholder = 'default 16S 27F'),
+          with_help('Forward primer (--primer-f)', '5\'->3\'. Prefilled from the primer set, can be edited. Leave empty for the default 16S 27F (AGRGTTYGATYMTGGCTCAG).'),
+          value = primer_sets[['16S']][['f']], placeholder = 'paste fwd sequence here'),
         textInput('bc_primer_r',
-          with_help('Reverse primer (--primer-r)', 'Optional, 5\'->3\'. Leave empty for the default 16S 1492R (RGYTACCTTGTTACGACTT).'),
-          value = '', placeholder = 'default 16S 1492R')
+          with_help('Reverse primer (--primer-r)', '5\'->3\'. Prefilled from the primer set, can be edited. Leave empty for the default 16S 1492R (RGYTACCTTGTTACGACTT).'),
+          value = primer_sets[['16S']][['r']], placeholder = 'paste rev sequence here')
       ),
       uiOutput('upload_ui')
     ),
@@ -426,6 +429,21 @@ server <- function(input, output, session) {
   # utag demux mode (only valid for barcoded runs)
   is_utag <- reactive({ isTRUE(input$barcoded) && isTRUE(input$custom_barcoding) })
 
+  # selecting a primer set prefills the primer fields ('other' clears them)
+  observeEvent(input$bc_primer_set, {
+    p <- primer_sets[[input$bc_primer_set]]
+    updateTextInput(session, 'bc_primer_f', value = p[['f']])
+    updateTextInput(session, 'bc_primer_r', value = p[['r']])
+  }, ignoreInit = TRUE)
+
+  # --primer-f/--primer-r from the primer fields
+  primer_args <- function() {
+    f <- toupper(trimws(input$bc_primer_f))
+    r <- toupper(trimws(input$bc_primer_r))
+    c(if (nzchar(f)) c('--primer-f', f),
+      if (nzchar(r)) c('--primer-r', r))
+  }
+
   
   # render sample name input if nonbc run
   output$nonbc_sample_name <- renderUI({
@@ -542,11 +560,7 @@ server <- function(input, output, session) {
         args <- c(args, '--ont-barcode', toupper(trimws(input$bc_ont_barcode)))
       if (isTRUE(input$bc_single_end))
         args <- c(args, '--single-end')
-      if (nzchar(trimws(input$bc_primer_f)))
-        args <- c(args, '--primer-f', toupper(trimws(input$bc_primer_f)))
-      if (nzchar(trimws(input$bc_primer_r)))
-        args <- c(args, '--primer-r', toupper(trimws(input$bc_primer_r)))
-      args
+      c(args, primer_args())
     } else {
       sheet <- sample_sheet_val()
       htmlreport <- ifelse(isTRUE(input$report), '-r', '')
@@ -822,10 +836,7 @@ server <- function(input, output, session) {
     sheet <- sample_sheet_val()
     if (!is.null(sheet) && nzchar(sheet))
       args <- c(args, '--samplesheet', sheet)
-    if (nzchar(trimws(input$bc_primer_f)))
-      args <- c(args, '--primer-f', toupper(trimws(input$bc_primer_f)))
-    if (nzchar(trimws(input$bc_primer_r)))
-      args <- c(args, '--primer-r', toupper(trimws(input$bc_primer_r)))
+    args <- c(args, primer_args())
 
     rv$ctx_cmd <- paste('utag', paste(args, collapse = ' '))
     # CLICOLOR_FORCE (set by RStudio) would put ANSI codes into the output
